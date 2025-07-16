@@ -1,0 +1,161 @@
+{
+  "expo": {
+    "name": "Qoneqt",
+    "slug": "Qoneqt",
+    "scheme": "qoneqt",
+    "version": "3.1.19",
+    "orientation": "portrait",
+    "icon": "./assets/images/android-app-icon.png",
+    "userInterfaceStyle": "dark",
+    "extra": {
+      "oneSignalAppId": "29f14eeb-ba1d-41d9-bf28-164f079c656d"
+    },
+"splash": {
+      "image": "./assets/images/splash.jpg",
+      "backgroundColor": "#020015",
+      "resizeMode": "cover",
+      "width": "100%",
+      "height": "100%"
+    },
+    "androidNavigationBar": {
+    "visible": "immersive"
+  },
+    "ios": {
+      "splash": {
+        "image": "./assets/images/splash.jpg",
+        "backgroundColor": "#020015",
+        "resizeMode": "contain",
+        "width": "100%",
+        "height": "100%"
+      },
+      "bundleIdentifier": "com.qoneqt.qoneqt",
+      "icon": "./assets/images/app-Logo.png",
+      "userInterfaceStyle": "dark",
+      "backgroundColor": "#020015",
+      "buildNumber": "1",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "This app requires access to your microphone.",
+        "UIBackgroundModes": ["remote-notification"]
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/android-app-icon.png",
+        "backgroundColor": "#020015"
+      },
+      "userInterfaceStyle": "dark",
+      "package": "com.qoneqt.android",
+      "icon": "./assets/images/android-app-icon.png",
+      "backgroundColor": "#020015",
+      "versionCode": 89,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "com.qoneqt.android",
+              "host": "auth"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
+      "permissions": ["POST_NOTIFICATIONS"]
+    },
+    "web": {
+      "favicon": "./assets/images/android-app-icon.png",
+      "backgroundColor": "#020015"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Qoneqt needs access to your camera to allow you to take photos or record videos, which can then be uploaded directly to your groups or posts within the Qoneqt community portal.",
+          "microphonePermission": "Qoneqt needs access to your microphone to allow you to take photos or record videos, which can then be uploaded directly to your groups or posts within the Qoneqt community portal.",
+          "recordAudioAndroid": true
+        }
+      ],
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "node_modules/@expo-google-fonts/nunito/Nunito_200ExtraLight.ttf",
+            "node_modules/@expo-google-fonts/nunito/Nunito_300Light.ttf",
+            "node_modules/@expo-google-fonts/nunito/Nunito_400Regular.ttf",
+            "node_modules/@expo-google-fonts/nunito/Nunito_500Medium.ttf",
+            "node_modules/@expo-google-fonts/nunito/Nunito_600SemiBold.ttf",
+            "node_modules/@expo-google-fonts/nunito/Nunito_700Bold.ttf",
+            "node_modules/@expo-google-fonts/nunito/Nunito_800ExtraBold.ttf",
+            "node_modules/@expo-google-fonts/nunito/Nunito_900Black.ttf",
+            "node_modules/@expo-google-fonts/nunito/Nunito_200ExtraLight_Italic.ttf",
+            "node_modules/@expo-google-fonts/nunito/Nunito_300Light_Italic.ttf",
+            "node_modules/@expo-google-fonts/nunito/Nunito_400Regular_Italic.ttf",
+            "node_modules/@expo-google-fonts/nunito/Nunito_500Medium_Italic.ttf",
+            "node_modules/@expo-google-fonts/nunito/Nunito_600SemiBold_Italic.ttf",
+            "node_modules/@expo-google-fonts/nunito/Nunito_700Bold_Italic.ttf",
+            "node_modules/@expo-google-fonts/nunito/Nunito_800ExtraBold_Italic.ttf",
+            "node_modules/@expo-google-fonts/nunito/Nunito_900Black_Italic.ttf"
+          ]
+        }
+      ],
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "Qoneqt needs access to your camera to allow you to take photos or record videos, which can then be uploaded directly to your groups or posts within the Qoneqt community portal.",
+          "enableCodeScanner": true
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#ffffff"
+        }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "qoneqt",
+          "project": "qoneqt-react-native",
+          "url": "https://sentry.io/"
+        }
+      ],
+      [
+        "react-native-vision-camera",
+        {
+          "enableCodeScanner": true
+        }
+      ],
+      [
+        "react-native-permissions",
+        {
+          "iosPermissions": [
+            "Camera",
+            "Microphone"
+          ]
+        }
+      ],
+      "react-native-compressor",
+      [
+        "onesignal-expo-plugin",
+        {
+          "mode": "production"
+        }
+      ]
+    ],
+    "taskManager": {
+      "ReactNativeFirebaseMessagingHeadlessTask": "headless-task"
+    },
+    "experiments": {
+      "typedRoutes": true,
+      "tsconfigPaths": true
+    },
+    "jsEngine": "jsc"
+  }
+}
