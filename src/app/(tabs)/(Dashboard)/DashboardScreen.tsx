@@ -39,9 +39,7 @@ import {
 } from "@/redux/slice/login/LoginUserSlice";
 import { useDispatch, useSelector, shallowEqual } from "react-redux";
 import { setPrefsValue } from "@/utils/storage";
-import CustomGroupTab from "@/components/CustomGroupTab";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import GroupList from "@/app/(features)/(group)/(screen)/GroupList";
 import { useScrollStore } from "@/zustand/scrollStore";
 import { fetchMyProfileDetails } from "@/redux/reducer/Profile/FetchProfileDetailsApi";
 import {
