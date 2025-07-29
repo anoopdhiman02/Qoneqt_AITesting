@@ -1,0 +1,86 @@
+[
+    {
+        "id": 9,
+        "category_name": "Jobs",
+        "order": 1,
+        "isSelected": false
+    },
+    {
+        "id": 40,
+        "category_name": "Internship",
+        "order": 2,
+        "isSelected": false
+    },
+    {
+        "id": 39,
+        "category_name": "Gaming",
+        "order": 3,
+        "isSelected": false
+    },
+    {
+        "id": 38,
+        "category_name": "Event",
+        "order": 4,
+        "isSelected": false
+    },
+    {
+        "id": 7,
+        "category_name": "Education",
+        "order": 5,
+        "isSelected": false
+    },
+    {
+        "id": 5,
+        "category_name": "Technology",
+        "order": 6,
+        "isSelected": false
+    },
+    {
+        "id": 28,
+        "category_name": "Sports",
+        "order": 7,
+        "isSelected": false
+    },
+    {
+        "id": 29,
+        "category_name": "Entertainment",
+        "order": 8,
+        "isSelected": false
+    },
+    {
+        "id": 20,
+        "category_name": "Blockchain",
+        "order": 9,
+        "isSelected": false
+    },
+    {
+        "id": 2,
+        "category_name": "Company",
+        "order": 10,
+        "isSelected": false
+    },
+    {
+        "id": 8,
+        "category_name": "News",
+        "order": 11,
+        "isSelected": false
+    },
+    {
+        "id": 10,
+        "category_name": "General",
+        "order": 12,
+        "isSelected": false
+    },
+    {
+        "id": 35,
+        "category_name": "Art",
+        "order": 13,
+        "isSelected": false
+    },
+    {
+        "id": 13,
+        "category_name": "Personalities",
+        "order": 14,
+        "isSelected": false
+    }   
+]
