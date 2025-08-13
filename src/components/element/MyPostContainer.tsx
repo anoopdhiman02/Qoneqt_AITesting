@@ -31,6 +31,7 @@ import TrackPlayer from "react-native-track-player";
 import { logEvent } from "@/customHooks/useAnalytics";
 import { useDispatch } from "react-redux";
 import { upgradePostData } from "@/redux/slice/post/PostDetailSlice";
+import RichText from "@/utils/RichText";
 
 const { width } = Dimensions.get("window");
 
@@ -53,6 +54,7 @@ interface PostContainerProps {
   isSelf?: boolean | undefined;
   isGroup?: boolean | undefined;
   isHome?: boolean | undefined;
+  currentUserID?: string;
 }
 
 const MyPostContainer = React.memo(({
@@ -66,6 +68,7 @@ const MyPostContainer = React.memo(({
   isSelf=false,
   isGroup=false,
   isHome=false,
+  currentUserID
 }: PostContainerProps) => {
   const { userId } = useAppStore();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -204,6 +207,7 @@ const MyPostContainer = React.memo(({
                         onPressView={() => {
                           // handlePress();
                         }}
+                        display_height={data?.display_height || []}
                       />
          
         </View>
@@ -258,7 +262,7 @@ const MyPostContainer = React.memo(({
           style={[styles.header, { marginTop: dynamicStyles.headerMarginTop }]}
         >
           <View style={styles.userInfo}>
-            <TouchableOpacity disabled={isSelf} onPress={handlePressProfile}>
+            <TouchableOpacity disabled={isSelf || currentUserID == derivedData.postById} onPress={handlePressProfile}>
               <ImageFallBackUser
                 imageData={derivedData.profilePic}
                 fullName={derivedData.fullName}
@@ -270,7 +274,7 @@ const MyPostContainer = React.memo(({
 
             <View style={styles.userDetails}>
               <TouchableOpacity
-                disabled={isSelf}
+                disabled={isSelf || currentUserID == derivedData.postById}
                 onPress={handlePressProfile}
                 style={styles.nameContainer}
               >
@@ -293,10 +297,10 @@ const MyPostContainer = React.memo(({
               </View>
             </View>
           </View>
-          <View >
+          <View>
             <TouchableOpacity onPress={onShare} style={styles.shareButton}>
               {/* <ShareIcon height={24} width={24} /> */}
-               <Ionicons name="share-outline" size={24} color={"grey"} />
+              <Ionicons name="share-outline" size={24} color={"grey"} />
             </TouchableOpacity>
             {/* <TouchableOpacity
             // onPress={handleOptionsPress}
@@ -323,7 +327,10 @@ const MyPostContainer = React.memo(({
                 : 3
             }
           >
-            {derivedData.postContent}
+            {derivedData.postContent != "" &&
+              derivedData.postContent != null && (
+                <RichText text={derivedData.postContent} mentions={[]} />
+              )}
           </Text>
           {derivedData.shouldShowReadMore && (
             <Text onPress={toggleExpand} style={styles.readMore}>

@@ -18,14 +18,9 @@ const KycModal = () => {
         <Text style={styles.subtitle}>
           You are a verified user of Qoneqt now!
         </Text>
-        <Text style={styles.subtext}>
-          Help us craft your feed by selecting your preferred category of
-          content
-        </Text>
         <NormalButton
           label={"Continue"}
           onPress={() => {
-            
             router.push("/DashboardScreen")
           }}
         />

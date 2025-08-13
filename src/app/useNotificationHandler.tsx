@@ -7,6 +7,7 @@ import { useAppStore } from "@/zustand/zustandStore";
 import { getUserDeatils } from "@/localDB/LocalStroage";
 import notifee, { EventType } from '@notifee/react-native';
 import { Platform } from "react-native";
+import { handleNotificationPress } from "@/utils/notificationRedirect";
 
 // ✅ Ensure Expo notifications are handled properly
 Notifications.setNotificationHandler({
@@ -25,10 +26,8 @@ const useNotificationHandler = () => {
   useEffect(() => {
     const handleNotificationTap = async (remoteMessage) => {
       const UserDetails = await getUserDeatils();
-      console.log("Notification2");
       InsertNotificationInfo({user_id: UserDetails?.id, push_id: remoteMessage?.data?.push_id, type: remoteMessage?.data?.type, data: remoteMessage?.data})
-      console.log("remoteMessage", remoteMessage.data);
-      // if (remoteMessage?.data) handleNotificationRedirect(remoteMessage?.data);
+      if (remoteMessage?.data) handleNotificationRedirect(remoteMessage?.data);
     };
 
     // ✅ Show Local Notification in Foreground
@@ -58,7 +57,6 @@ const useNotificationHandler = () => {
 
     // ✅ 1️⃣ Foreground Notification Listener (Firebase)
     const unsubscribeForeground = messaging().onMessage(async (remoteMessage) => {
-      console.log("unsubscribeForegroundremoteMessage", remoteMessage);
       await showLocalNotification(remoteMessage);
     });
 
@@ -66,16 +64,13 @@ const useNotificationHandler = () => {
     messaging()
       .getInitialNotification()
       .then((remoteMessage) => {
-        console.log("getInitialNotificationremoteMessage", remoteMessage);
         if (remoteMessage) {
           handleNotificationTap(remoteMessage);
         }
       });
 
     messaging().onNotificationOpenedApp((remoteMessage) => {
-      console.log("onNotificationOpenedAppremoteMessage", remoteMessage);
       if (oldNotificationData?.messageId === remoteMessage?.messageId) {
-        console.log('Duplicate message ID, skipping');
         return;
       }
       oldNotificationData = remoteMessage;
@@ -85,18 +80,15 @@ const useNotificationHandler = () => {
     // ✅ 3️⃣ Listen for Foreground Notification Clicks (Fix for Foreground)
     const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response?.notification?.request?.content;
-      console.log("Notification data", data);
       handleNotificationTap(data);
     });
 
     const unsubscribeNotifeeForeground = notifee.onForegroundEvent(({ type, detail }) => {
             switch (type) {
               case EventType.DISMISSED:
-                console.log('User dismissed notification', detail.notification?.id);
                 break;
               case EventType.PRESS:
                 if (detail?.notification?.data) {
-                  console.log('Notifee notification pressed:', detail.notification.data.type);
                   handleNotificationRedirect(detail.notification.data);
                 }
                 break;
@@ -143,6 +135,8 @@ const useNotificationHandler = () => {
       case "loop_join":
       case "loop_add":
       case "loop_request":
+      case "remove_group_member":
+      case "join_request":
       case "accept_request":
         router.push({
           pathname: "/groups/[slug]",

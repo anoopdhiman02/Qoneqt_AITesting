@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useMemo, useRef } from "react";
 import {
   FlatList,
   Text,
@@ -17,215 +17,298 @@ import { rupee } from "@/utils/Helpers";
 import { showToast } from "@/components/atom/ToastMessageComponent";
 import { setPrefsValue } from "@/utils/storage";
 import Clipboard from "@react-native-clipboard/clipboard";
-import { shallowEqual, useSelector } from "react-redux";
+import { shallowEqual, useDispatch, useSelector } from "react-redux";
+import { getTransactionHistory } from "@/redux/reducer/Transaction/GetTransactionHistory";
+import { transactionLoader } from "@/redux/slice/Transaction/GetTransactionHistorySlice";
 
-
-
-const HeaderTab = () => {
+// Memoized HeaderTab component
+const HeaderTab = React.memo(() => {
   return (
     <TouchableOpacity
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: "rgba(255, 255, 255, 0.1)",
-        borderRadius: 8,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        marginBottom: 20,
-        alignSelf: "flex-start",
-      }}
+      style={headerTabStyles.container}
     >
-      <Text
-        style={{
-          fontSize: 14,
-          fontFamily: fontFamilies.semiBold,
-          color: globalColors.neutralWhite,
-          marginRight: 8,
-        }}
-      >
+      <Text style={headerTabStyles.text}>
         All groups
       </Text>
       <ArrowUpIcon />
     </TouchableOpacity>
   );
+});
+
+// Styles extracted to constants for better performance
+const headerTabStyles: any = {
+  container: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 20,
+    alignSelf: "flex-start",
+  },
+  text: {
+    fontSize: 14,
+    fontFamily: fontFamilies.semiBold,
+    color: globalColors.neutralWhite,
+    marginRight: 8,
+  }
+};
+
+const transactionStyles: any = {
+  container: {
+    backgroundColor: globalColors.neutral2,
+    borderRadius: 12,
+    padding: "6%",
+    marginBottom: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    top: 5,
+  },
+  leftSection: {
+    flex: 1,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  transactionText: {
+    fontSize: 14,
+    fontFamily: fontFamilies.semiBold,
+    color: globalColors.neutralWhite,
+    marginBottom: 4,
+  },
+  dateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  dateText: {
+    fontSize: 12,
+    fontFamily: fontFamilies.regular,
+    color: globalColors.neutral8,
+  },
+  amountText: {
+    fontSize: 16,
+    fontFamily: fontFamilies.semiBold,
+  }
+};
+
+const emptyStateStyles: any = {
+  text: {
+    fontSize: 18,
+    fontFamily: fontFamilies.semiBold,
+    color: globalColors.neutralWhite,
+    textAlign: "center",
+    marginTop: "100%",
+    padding: "5%",
+    borderRadius: 8,
+  }
+};
+
+const loadingStyles: any = {
+  text: {
+    fontSize: 16,
+    fontFamily: fontFamilies.regular,
+    color: globalColors.neutralWhite,
+    textAlign: "center",
+    marginTop: 20,
+  }
 };
 
 const TransactionScreen = () => {
   const { userId } = useAppStore();
-  const { onfetchTransactionHistory, loading, historyData } =
-    useHistoryViewModel();
-const [dots, setDots] = useState('')
-    const transactionData: any = useSelector(
-        (state: any) => state.transactionHistortData, shallowEqual
-      );
+  const { onfetchTransactionHistory, loading, historyData } = useHistoryViewModel();
+  const [dots, setDots] = useState('');
+  const flatListRef = useRef(null);
+  const isLoadingMore = useRef(false);
+  const dispatch = useDispatch();
+  const transactionData = useSelector(
+    (state: any) => state.transactionHistortData,
+    shallowEqual
+  );
 
+  // Memoized transaction data to prevent unnecessary re-renders
+  const memoizedTransactionData = useMemo(() => {
+    const rawData = transactionData?.updateData || [];
+    // Remove duplicates based on transaction_id and created_at
+    const uniqueTransactions = rawData.filter((item, index, self) => {
+      return index === self.findIndex(t => 
+        t?.transaction_id === item?.transaction_id && 
+        t?.created_at === item?.created_at
+      );
+    });
+    
+    return uniqueTransactions;
+  }, [transactionData?.updateData]);
+
+  // Optimized copy to clipboard function
+  const copyToClipboard = useCallback((transId) => {
+    if (transId) {
+      Clipboard.setString(transId);
+      showToast({ type: "success", text1: "Transaction ID copied!" });
+    }
+  }, []);
+
+  // Optimized TransactionComponent with proper memoization
+  const TransactionComponent = React.memo(({ data, userId }: any) => {
+    const isSuccess = data?.payment_type;
+    const textColor = isSuccess === "credited" ? globalColors.success : globalColors.warning;
+    const sign = isSuccess === "credited" ? "+" : "-";
+    
+    // Memoize the formatted date to avoid recalculation
+    const formattedDate = useMemo(() => {
+      return moment
+        .utc(data?.created_at)
+        .utcOffset("+05:30")
+        .format("D MMM YY | h:mm a");
+    }, [data?.created_at]);
+
+    const handleCopyPress = useCallback(() => {
+      copyToClipboard(data?.transaction_id);
+    }, [data?.transaction_id, copyToClipboard]);
+
+    return (
+      <TouchableOpacity activeOpacity={1} style={transactionStyles.container}>
+        <View style={transactionStyles.leftSection}>
+          <View style={transactionStyles.headerRow}>
+            <Text style={transactionStyles.transactionText}>
+              Transaction :- {data?.transaction_id}
+            </Text>
+          </View>
+          <View style={transactionStyles.dateRow}>
+            <Text style={transactionStyles.dateText}>
+              {formattedDate}
+            </Text>
+          </View>
+        </View>
+        <Text
+          style={[
+            transactionStyles.amountText,
+            { color: textColor }
+          ]}
+        >
+          {`${sign} ${data.transaction_amount}`}
+        </Text>
+      </TouchableOpacity>
+    );
+  });
+
+  // Optimized loading dots animation
   useEffect(() => {
-    onfetchTransactionHistory();
+    let dotCount = 0;
+    const interval = setInterval(() => {
+      dotCount = (dotCount + 1) % 4;
+      setDots('.'.repeat(dotCount));
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Initial data fetch
+  useEffect(() => {
+    getTransactionHistoryData(0)
     return () => {
       setPrefsValue("notificationInfo", "");
     };
   }, []);
 
-  const TransactionComponent = useCallback(({ data, userId }) => {
-    const isSuccess = data?.payment_type;
-    const textColor =
-      isSuccess === "credited" ? globalColors.success : globalColors.warning;
-    const sign = isSuccess === "credited" ? "+" : "-";
-    const copyToClipboard = (transId) => {
-      if (transId) {
-        Clipboard.setString(transId);
+  const getTransactionHistoryData = (lastCount: number) => {
+    dispatch(transactionLoader(true))
+    // @ts-ignore
+    dispatch(getTransactionHistory({ userId: userId, lastCount: lastCount }));
+  }
 
-        showToast({ type: "success", text1: "Transaction ID copied!" });
-      }
-    };
-  
-    return (
-      <View
-        style={{
-          backgroundColor: globalColors.neutral2,
-          borderRadius: 12,
-          padding: "6%",
-          marginBottom: 12,
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-          top: 5,
-        }}
-      >
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Text
-              style={{
-                fontSize: 14,
-                fontFamily: fontFamilies.semiBold,
-                color: globalColors.neutralWhite,
-                marginBottom: 4,
-              }}
-            >
-              Transaction :- {data?.transaction_id}
-            </Text>
-            {/* <TouchableOpacity
-              onPress={() => copyToClipboard(data?.transaction_id)}
-              style={{ marginLeft: 6 }}
-            >
-              <CopyIcon style={{ marginTop: 3 }} />
-            </TouchableOpacity> */}
-          </View>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <Text
-            style={{
-              fontSize: 12,
-              fontFamily: fontFamilies.regular,
-              color: globalColors.neutral8,
-            }}
-          >
-            {moment
-              .utc(data?.created_at)
-              .utcOffset("+05:30")
-              .format("D MMM YY | h:mm a")}
-          </Text>
-          
-          </View>
-          
-        </View>
-        <Text
-          style={{
-            fontSize: 16,
-            fontFamily: fontFamilies.semiBold,
-            color: textColor,
-          }}
-        >
-        {`${sign} ${data.transaction_amount}`}
-        </Text>
-        
-      </View>
+  // Memoized empty component
+  const ListEmptyComponent = useMemo(() => {
+    return () => (
+      <Text style={emptyStateStyles.text}>
+        No transactions found.
+      </Text>
     );
-  },[transactionData.updateData]);
+  }, []);
 
-  useEffect(() => {
-      let dotCount = 0;
-      const interval = setInterval(() => {
-        dotCount = (dotCount + 1) % 4;
-        setDots('.'.repeat(dotCount));
-      }, 500);
-  
-      return () => clearInterval(interval);
-    }, []);
+  // Memoized loading component
+  const LoadingComponent = useMemo(() => {
+    return () => (
+      <Text style={loadingStyles.text}>
+        {`Loading transactions${dots}`}
+      </Text>
+    );
+  }, [dots]);
 
-  const ListEmptyComponent = () =>{
-    return(<Text
-      style={{
-        fontSize: 18,
-        fontFamily: fontFamilies.semiBold,
-        color: globalColors.neutralWhite,
-        textAlign: "center",
-        marginTop: "100%",
-        padding: "5%",
-        borderRadius: 8,
-      }}
-    >
-      No transactions found.
-    </Text>)
-  }
-
-  const onEndReached = ()=>{
-    if(transactionData.updateData.length > 5 && transactionData.data.length != 0 && !transactionData.isLoaded ){
-      onfetchTransactionHistory();
+  // Optimized pagination logic
+  const onEndReached = useCallback(() => {
+    if (
+      transactionData?.updateData?.length > 5 && 
+      transactionData?.data?.length !== 0 && 
+      !transactionData?.isLoaded
+    ) {
+      getTransactionHistoryData(transactionData?.updateData?.length)
     }
+  }, [transactionData?.updateData?.length, transactionData?.data?.length, transactionData?.isLoaded, onfetchTransactionHistory]);
 
-  }
+  // Memoized footer component
+  const ListFooterComponent = useMemo(() => {
+    return () => {
+      if (
+        transactionData?.updateData?.length > 5 && 
+        transactionData?.data?.length !== 0 && 
+        !transactionData?.isLoaded
+      ) {
+        return <LoadingComponent />;
+      }
+      return <View style={{ height: 50 }} />;
+    };
+  }, [transactionData?.updateData?.length, transactionData?.data?.length, transactionData?.isLoaded, LoadingComponent]);
 
-  const LoadingComponent = ()=>{
-    return(<Text
-      style={{
-        fontSize: 16,
-        fontFamily: fontFamilies.regular,
-        color: globalColors.neutralWhite,
-        textAlign: "center",
-        marginTop: 20,
-      }}
-    >
-      {`Loading transactions${dots}`}
-    </Text>)
-  }
+  // Optimized renderItem function
+  const renderItem = useCallback(({ item }) => (
+    <TransactionComponent data={item} userId={userId} />
+  ), [userId]);
 
-  const ListFooterComponent = ()=>{
-    if(transactionData.updateData.length > 5 && transactionData.data.length != 0 && !transactionData.isLoaded ){
-return(
- <LoadingComponent/>
-)
-    }
-    else {
-      return(
-        <View style={{height: 50}}/>
-      )
-    }
-  }
+  // Optimized keyExtractor
+  const keyExtractor = useCallback((item, index) => {
+    return item?.transaction_id?.toString() || index.toString();
+  }, []);
+
+  // Determine if we should show loading or list
+  const shouldShowLoading = transactionData.isLoaded && transactionData?.updateData?.length === 0;
 
   return (
     <ViewWrapper>
-      <View style={{ flex: 1, padding: 20, width: "100%" }}>
+      <TouchableOpacity activeOpacity={1} style={{ flex: 1, padding: 20, width: "100%" }}>
         <GoBackNavigation header="Transaction history" isDeepLink={true} />
         {/* <HeaderTab /> */}
-        {transactionData.isLoaded ? (
-          <LoadingComponent/>
-        ) : 
-          (<FlatList
-            data={transactionData.updateData}
-            keyExtractor={(item, index) => index.toString()}
-            renderItem={({ item }) => (
-              <TransactionComponent data={item} userId={userId} />
-            )}
+        {shouldShowLoading ? (
+          <LoadingComponent />
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={memoizedTransactionData}
+            keyExtractor={keyExtractor}
+            renderItem={renderItem}
             ListEmptyComponent={ListEmptyComponent}
+            ListFooterComponent={ListFooterComponent}
             contentContainerStyle={{
               paddingBottom: 10,
             }}
             onEndReachedThreshold={0.5}
             onEndReached={onEndReached}
-          ListFooterComponent={ListFooterComponent}
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={10}
+            windowSize={10}
+            initialNumToRender={10}
+            getItemLayout={(data, index) => ({
+              length: 80, // Approximate height of each item
+              offset: 80 * index,
+              index,
+            })}
+            updateCellsBatchingPeriod={50}
           />
-        )} 
-      </View>
+        )}
+      </TouchableOpacity>
     </ViewWrapper>
   );
 };

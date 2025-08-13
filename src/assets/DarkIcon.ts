@@ -111,7 +111,7 @@ import JobIcon from "./svg/DarkIcon/Job.svg";
 import SearchIcon from "./svg/DarkIcon/Search.svg";
 import SearchHistoryIcon from "./svg/DarkIcon/SearchHistory.svg";
 import SettingsIcon from "./svg/DarkIcon/Settings.svg";
-import ShareIcon from "./svg/DarkIcon/shareIcon.svg";
+import ShareIcon from "./svg/DarkIcon/Share_icon.svg";
 import Share01Icon from "./svg/DarkIcon/Share01.svg";
 import SocialTokenIcon from "./svg/DarkIcon/SocialToken.svg";
 import SportsIcon from "./svg/DarkIcon/Sports.svg";

@@ -542,7 +542,7 @@ const backHandler = BackHandler.addEventListener(
               // router.push("/CreatePostScreen");
             }}
             icon="add"
-            backgroundColor="#8954F6"
+            backgroundColor={globalColors?.slateBlueTint20}
           />
         </Animated.View>
       )}

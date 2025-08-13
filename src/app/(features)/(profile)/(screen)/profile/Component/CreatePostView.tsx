@@ -17,7 +17,6 @@ const CreatePostView = ({onPress, insets}: {onPress: () => void, insets: any}) =
               }}
               onPress={onPress}
             >
-                <AddIcon />
 
     
                 <View
@@ -36,7 +35,7 @@ const CreatePostView = ({onPress, insets}: {onPress: () => void, insets: any}) =
                     placeholderTextColor={globalColors.neutral5}
                     editable={false}
                     style={{
-                      flex: 0.8,
+                      flex: 0.85,
                       color: globalColors.neutralWhite,
                       fontSize: 16,
                       height: 42,

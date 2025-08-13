@@ -79,6 +79,7 @@ const CreatePostComponent: React.FC<CreatePostProps> = ({
               type={"video"}
               isHome={true}
               isGroup={false}
+              display_height={[]}
             />
           </View>
         )}

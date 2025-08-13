@@ -98,9 +98,9 @@ const GoBackNavigation = ({
           onPress={() => {
             if (buttonVisibleRef.current) return;
             buttonVisibleRef.current == true;
-            if(isBack){
-              backPress()
-            }else{
+            if (isBack) {
+              backPress();
+            } else {
               handleBackPress();
             }
           }}
@@ -117,6 +117,8 @@ const GoBackNavigation = ({
             color: globalColors.neutralWhite,
             marginLeft: 16,
           }}
+          numberOfLines={1}
+          ellipsizeMode="tail"
         >
           {header}
         </Text>
@@ -126,21 +128,19 @@ const GoBackNavigation = ({
           flexDirection: "row",
         }}
       >
-      {isMessageIcon && (
-        <TouchableOpacity  onPress={onPressMessageIcon}>
-          <Image source={{uri:"https://img.icons8.com/ios-glyphs/30/speech-bubble-with-dots.png"}} style={{width:24,height:24, tintColor:globalColors.neutralWhite }}/>
-        </TouchableOpacity>
-      )}
-      {isShareIcon && (
-        <TouchableOpacity style={{marginHorizontal: 5}} onPress={onPressShareIcon}>
-          <Share01Icon width={24} height={24} />
-        </TouchableOpacity>
-      )}
-      {isleftIcon && (
-        <TouchableOpacity onPress={onPressLeftIcon}>
-          <OptionsIcon width={24} height={24} />
-        </TouchableOpacity>
-      )}
+        {isShareIcon && (
+          <TouchableOpacity
+            style={{ marginHorizontal: 5 }}
+            onPress={onPressShareIcon}
+          >
+            <Share01Icon width={24} height={24} />
+          </TouchableOpacity>
+        )}
+        {isleftIcon && (
+          <TouchableOpacity onPress={onPressLeftIcon}>
+            <OptionsIcon width={24} height={24} />
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );

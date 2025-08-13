@@ -18,7 +18,19 @@ const StatusComponent = ({
   return (
     <ViewWrapper>
       <View style={styles.container}>
-        <Image source={imageSource} style={styles.image} />
+        <Image
+          source={imageSource}
+          style={styles.image}
+          cachePolicy="memory-disk"
+          contentFit="contain"
+          transition={200}
+          placeholder={imageSource}
+        />
+        {/* <Image
+          source={imageSource}
+          style={styles.image}
+          cachePolicy="memory-disk"
+        /> */}
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.subtitle}>{subtitle}</Text>
         {showButton && (
@@ -37,6 +49,7 @@ const styles = StyleSheet.create({
   image: {
     width: (width * 90) / 100,
     height: (width * 80) / 100,
+    backgroundColor: "transparent", // Prevent background color changes
   },
   title: {
     color: globalColors.neutralWhite,

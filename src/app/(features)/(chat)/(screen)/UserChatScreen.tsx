@@ -1,79 +1,79 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
-  StyleSheet,
-  Dimensions,
   Modal,
   Keyboard,
   BackHandler,
+  FlatList,
+  ActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
-import BottomSheet from "@gorhom/bottom-sheet";
-import BottomSheetWrap from "../../../../components/bottomSheet/BottomSheetWrap";
-import Button1 from "../../../../components/buttons/Button1";
 import { showToast } from "@/components/atom/ToastMessageComponent";
-import {
-  AddIcon,
-  ArrowLeftBigIcon,
-  CloseIcon,
-  OptionsIcon,
-  PaperPlaneIcon,
-  PlayIcon,
-  VerifiedIcon,
-} from "@/assets/DarkIcon";
-import { fontFamilies } from "@/assets/fonts";
 import { globalColors } from "@/assets/GlobalColors";
-import GradientText from "@/components/element/GradientText";
 import { useAppStore } from "@/zustand/zustandStore";
-import { R2_PUBLIC_URL } from "@/utils/constants";
 import { uploadToR2 } from "@/utils/r2Uploads";
 import ViewWrapper from "@/components/ViewWrapper";
 import useMessageSupabaseViewModel from "../viewModel/MessageSupabaseViewModel";
 import useUserChatDetailViewModel from "../viewModel/UserChatDetailViewModel";
-import moment from "moment";
-import {
-  ChatOptionBottomSheet,
-  DeleteMessageBottomSheet,
-} from "@/components/bottomSheet/ProfileOptionBottomSheet";
-import BlockUserBottomSheet from "@/components/bottomSheet/BlockUserBottomSheet";
 import { useReportStore } from "@/zustand/reportStore";
 import useBlockUserHook from "@/customHooks/BlockUserHook";
-import SelectMediaBottomSheet from "@/components/bottomSheet/SelectMediaBottomSheet";
-import { ImageFallBackUser } from "@/utils/ImageUrlConcat";
 import { setPrefsValue } from "@/utils/storage";
 import UserStoreDataModel from "@/viewModels/UserStoreDataModal";
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from "@react-navigation/native";
 import { useScreenTracking } from "@/customHooks/useAnalytics";
+import styles from "./UserChatScreen.styles";
+import ClearConversation from "./Component/ClearConversation";
+import ChatHeaderView from "./Component/ChatHeaderView";
+import RenderEmptyState from "./Component/RenderEmptyState";
+import ChatInputSection from "./Component/ChatInputSection";
+import DeleteMessageChat from "./Component/DeleteMessageChat";
+import CustomBottomView from "@/app/BottomSheet/CustomBottomView";
+import MediaSelectView from "./Component/MediaSelectView";
+import BlockUserView from "./Component/BlockUserView";
+import ChatOptionView from "./Component/ChatOptionView";
+import RenderChatView from "./Component/RenderChatView";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-const { width, height } = Dimensions.get("window");
 
 const UserChatScreen = () => {
   useScreenTracking("UserChatScreen");
   const { id, from, name, logo, isNotification } = useLocalSearchParams();
-  const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams();
+  const params: any = useLocalSearchParams();
   const userId = useAppStore((state) => state.userId);
   const { setReportUserDetails } = useReportStore();
+
+  // Stable keyboard state management to prevent flicker
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [isOptionVisible, setIsOptionVisible] = useState(false);
+  const [isChatOptionVisible, setIsChatOptionVisible] = useState(false);
+  const [isBlockVisible, setIsBlockVisible] = useState(false);
+  const [isDeleteVisible, setIsDeleteVisible] = useState(false);
+  const [isClearVisible, setIsClearVisible] = useState(false);
+  const [isMediaVisible, setIsMediaVisible] = useState(false);
+  const [isDeleteMessageVisible, setIsDeleteMessageVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const keyboardTimeoutRef = useRef(null);
+  const profileTimerRef = useRef(null);
   const {
-    fetchMessagesSupabase,
+    fetchMessagesWithPagination,
     supabaseChat,
     clearChat,
     deleteMessage,
     updateSeen,
     insertMessage,
+    isLoadingMore,
+    isInitialLoad,
+    onLoadMore,
   } = useMessageSupabaseViewModel({
     uid: userId,
     receiverId: id,
     messageType: from,
   });
 
+  const chatUserData = params?.chatUser ? JSON.parse(params?.chatUser) : {};
   const {
     onFetchUserMessageHandler,
     chatUserDetails,
@@ -89,16 +89,23 @@ const UserChatScreen = () => {
   const { blockLoading, onPressBlockHandler } = useBlockUserHook();
   const [chatText, setChatText] = useState("");
   const [selectedMessage, setSelectedMessage] = useState(null);
-  const isFocused = useIsFocused()
-
+  const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
   let r2UploadResult = null;
+
+  const scrollViewRef = useRef<ScrollView>(null);
+  const mediaTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const mediaViewTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const reportTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const blockTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const refreshTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const determineAttachmentType = (name: string) => {
     const imageExtensions = ["jpg", "jpeg", "png", "gif"];
     const audioExtensions = ["mp3", "wav", "ogg"];
     const videoExtensions = ["mp4", "avi", "mov"];
 
-    const extension = name ?  name.split(".").pop().toLowerCase() :'jpg';
+    const extension = name ? name.split(".").pop().toLowerCase() : "jpg";
 
     if (imageExtensions.includes(extension)) return "image";
     if (audioExtensions.includes(extension)) return "audio";
@@ -111,61 +118,93 @@ const UserChatScreen = () => {
       return "null";
     }
   };
+
+  // Comprehensive keyboard handling to eliminate flicker
   useEffect(() => {
-    updateUserData();
-    const backHandler = BackHandler.addEventListener(
-                  "hardwareBackPress",
-                  () => {
-                    if (router.canGoBack()) {
-                      router.back();
-                    }
-                    else{
-                      router.replace("/DashboardScreen");
-                    }
-                    return true;
-                  }
-                );
+    const keyboardDidShowListener = Keyboard.addListener(
+      "keyboardDidShow",
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+        setIsKeyboardVisible(true);
+      }
+    );
+
+    const keyboardDidHideListener = Keyboard.addListener(
+      "keyboardDidHide",
+      () => {
+        setKeyboardHeight(0);
+        setIsKeyboardVisible(false);
+      }
+    );
+
     return () => {
-      backHandler.remove();
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
     };
   }, []);
 
   useEffect(() => {
-    fetchMessagesSupabase();
-    updateSeen();
-  }, [id]);
+    updateUserData();
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.replace("/DashboardScreen");
+        }
+        return true;
+      }
+    );
+    return () => {
+      backHandler.remove();
+      if (mediaTimerRef.current) {
+        clearTimeout(mediaTimerRef.current);
+        mediaTimerRef.current = null;
+      }
+      if (mediaViewTimerRef.current) {
+        clearTimeout(mediaViewTimerRef.current);
+        mediaViewTimerRef.current = null;
+      }
+      if (reportTimerRef.current) {
+        clearTimeout(reportTimerRef.current);
+        reportTimerRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
-    if(isFocused){
+    fetchMessagesWithPagination(1, 20, true);
+    updateSeen();
+  }, [id, userId]);
+
+  useEffect(() => {
+    if (isFocused) {
       onFetchUserMessageHandler({ userId: userId, profileId: id });
     }
     return () => {
       setPrefsValue("notificationInfo", "");
+      if (refreshTimeout.current) {
+        clearTimeout(refreshTimeout.current);
+        refreshTimeout.current = null;
+      }
     };
   }, [id, isFocused]);
 
-  const handleOnPress = (text) => {
-    setChatText(text);
-  };
-
-  const onSend = useCallback((messages = []) => {
-    // setMessages((previousMessages) =>
-    //   GiftedChat.append(previousMessages, messages)
-    // );
-  }, []);
-
   const onMessageSend = async (text: string) => {
     const message = text;
-    setChatText("");
     if ((text === "" || text === null) && !imageData) {
       showToast({ type: "error", text1: "Please enter message" });
       return;
     }
-    // comment media file
+
+    setChatText("");
+
     if (imageData) {
       const attachmentType = determineAttachmentType(imageFileData.name);
       if (attachmentType != "image") {
         showToast({ type: "error", text1: "Please select proper image" });
+        setChatText(text);
         return null;
       }
       try {
@@ -178,11 +217,20 @@ const UserChatScreen = () => {
         console.log("Error uploading to R2:", error);
         return null;
       }
-      insertMessage({message, attach: r2UploadResult.key, type: "image", notificationType:"personal_chat"});
+      insertMessage({
+        message,
+        attach: r2UploadResult.key,
+        type: "image",
+        notificationType: "personal_chat",
+      });
       setImageFileData(null);
       setImageData("");
     } else {
-      insertMessage({message:text, notificationType:"personal_chat", attach:''});
+      insertMessage({
+        message: text,
+        notificationType: "personal_chat",
+        attach: "",
+      });
       setChatText("");
     }
   };
@@ -192,53 +240,39 @@ const UserChatScreen = () => {
     setImageFileData(null);
   };
 
-  //clear chat function
-  const clearChatConfirm = () => {
-    //@ts-ignore
-    clearChat({ uids: userId, receiverIds: id });
-    setSelectedMessage(null);
-    showToast({ type: "success", text1: "Chat Cleared" });
-    ClearConRef.current.close();
-  };
-
-  const handleLongPress = (message: { receiverId: any }, id: any) => {
-    message.receiverId != userId
-      ? setSelectedMessage(id)
-      : setSelectedMessage(null);
-    message.receiverId != userId ? DeleteMessageRef.current.expand() : null;
-  };
-
-  //delete message function
-  const handleDeleteMessage = () => {
-    if (selectedMessage) {
-      deleteMessage(selectedMessage);
+  const clearChatConfirm = async () => {
+    try {
+      await clearChat();
       setSelectedMessage(null);
-      DeleteMessageRef.current.close();
+      setIsOptionVisible(false);
+      setIsClearVisible(false);
+    } catch (error) {
+      console.error("Error clearing chat:", error);
+      showToast({ type: "error", text1: "Failed to clear chat" });
     }
   };
 
-  //group chats by date
-  const groupChatsByDate = (chats: any[]) => {
-    const groupedChats = chats.reduce((acc, chat) => {
-      const date = new Date(chat.created_at).toDateString(); // Group by date only
-      if (!acc[date]) {
-        acc[date] = [];
-      }
-      acc[date].push(chat);
-      return acc;
-    }, {});
-
-    const sortedGroupedChats = Object.entries(groupedChats).map(
-      ([date, chats]) => ({
-        date,
-        chats: (chats as any[]).sort(
-          (a, b) =>
-            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        ),
-      })
-    );
-    return sortedGroupedChats;
+  const handleLongPress = (message: { receiverId: any }, id: any) => {
+    if (message.receiverId != userId) {
+      setSelectedMessage(id);
+      setIsDeleteMessageVisible(true);
+    } else {
+      setSelectedMessage(null);
+    }
   };
+
+  const handleDeleteMessage = async () => {
+    if (selectedMessage) {
+      try {
+        await deleteMessage(selectedMessage);
+        setSelectedMessage(null);
+        setIsDeleteMessageVisible(false);
+      } catch (error) {
+        console.error("Error deleting message:", error);
+      }
+    }
+  };
+
   const profilePress = () => {
     chatUserDetails?.id === userId
       ? router.push({
@@ -247,580 +281,20 @@ const UserChatScreen = () => {
         })
       : router.push({
           pathname: "/profile/[id]",
-          params: { id: chatUserDetails?.id, isProfile: "true", isNotification: "false" },
+          params: {
+            id: chatUserDetails?.id,
+            isProfile: "true",
+            isNotification: "false",
+          },
         });
   };
 
-  const Header = () => {
-    // console.log("chatUserDetails", chatUserDetails);
-    return (
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          paddingVertical: 10,
-          paddingHorizontal: 15,
-          width: "90%",
-          left: "3%",
-        }}
-      >
-        <TouchableOpacity
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            // marginTop: "3%",
-          }}
-          disabled={chatUserDetails?.id == undefined}
-          onPress={() => {
-            profilePress();
-          }}
-        >
-          <TouchableOpacity
-          disabled={chatUserDetails?.id == undefined}
-            onPress={() => {
-              profilePress();
-            }}
-          >
-            <ImageFallBackUser
-              imageData={chatUserDetails?.profile_pic}
-              fullName={
-                from === "1" ? chatUserDetails?.full_name || "Delete User" : `# ${params?.name}`
-              }
-              widths={35}
-              heights={35}
-              borders={16}
-            />
-          </TouchableOpacity>
-          <Text
-            style={{
-              fontSize: 18,
-              fontFamily: fontFamilies.semiBold,
-              color: globalColors.neutralWhite,
-              marginLeft: 8,
-              marginRight: 3,
-            }}
-          >
-            {from === "1" ? chatUserDetails?.full_name || "Delete User" : `# ${params?.name}`}
-          </Text>
-          {chatUserDetails?.kyc_status == 1 && <VerifiedIcon />}
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => profileOptionRef.current.expand()}>
-          <OptionsIcon width={24} height={24} />
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  const Chats = () => {
-    const [isModalVisible, setModalVisible] = useState(false);
-    const [selectedImage, setSelectedImage] = useState(null);
-
-    const toggleModal = (imageUri) => {
-      if (imageUri) {
-        setSelectedImage(imageUri);
-        setModalVisible(true);
-      }
-    };
-
-    const toggleCloseModal = () => {
-      setModalVisible(false);
-      setSelectedImage(null);
-    };
-
-    const sortedGroupedChats = groupChatsByDate(supabaseChat);
-    return (
-      <View
-        style={{
-          alignSelf: "stretch",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          marginTop: "5%",
-        }}
-      >
-        {sortedGroupedChats.map((group, groupIndex) => (
-          <View key={`group-${groupIndex}`} style={{ width: "100%" }}>
-            <View
-              style={{
-                borderRadius: 24,
-                backgroundColor: globalColors.neutral5,
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: "2%",
-                width: "50%",
-                alignSelf: "center",
-              }}
-            >
-              <Text
-                style={{
-                  position: "relative",
-                  fontSize: 14,
-                  lineHeight: 20,
-                  fontFamily: fontFamilies.light,
-                  color: globalColors.neutralWhite,
-                  textAlign: "center",
-                }}
-              >
-                {group.date}
-              </Text>
-            </View>
-            {group.chats.map((item, itemIndex) => (
-              <View
-                key={`${item._id}-${itemIndex}`} // Ensure uniqueness
-                style={{
-                  alignSelf: "stretch",
-                  flexDirection: "column",
-                  alignItems:
-                    item?.receiverId != userId ? "flex-end" : "flex-start",
-                  justifyContent: "center",
-                  marginTop: 8,
-                }}
-              >
-                <TouchableOpacity
-                  onLongPress={() => handleLongPress(item, item._id)}
-                  activeOpacity={0.8}
-                  delayLongPress={300}
-                >
-                  <View
-                    style={{
-                      borderRadius: 16,
-                      backgroundColor:
-                        item?.receiverId != userId
-                          ? "#52348f"
-                          : "rgba(255, 255, 255, 0.1)",
-                      padding: 12,
-                    }}
-                  >
-                    {item?.message && (
-                      <Text
-                        style={{
-                          fontSize: 14,
-                          lineHeight: 20,
-                          color: "#fff",
-                          textAlign:
-                            item?.receiverId != userId ? "right" : "left",
-                        }}
-                      >
-                        {item?.message}
-                      </Text>
-                    )}
-
-                    {/* Image Preview - Click to Expand */}
-                    {item?.fileType === "image" && (
-                      <TouchableOpacity
-                        onPress={() =>
-                          toggleModal(R2_PUBLIC_URL + item?.attachment)
-                        }
-                      >
-                        <Image
-                          source={{ uri: R2_PUBLIC_URL + item?.attachment }}
-                          // style={{ width: 100, height: 100, borderRadius: 10 }}
-                          style={{
-                            width: width * 0.4,
-                            height: height * 0.2,
-                            resizeMode: "contain",
-                            borderRadius: 5,
-                          }}
-                          contentFit="cover"
-                        />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-
-                  {/* Timestamp */}
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "flex-end",
-                      margin: 5,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 12,
-                        color: "#fff",
-                        textAlign: "right",
-                      }}
-                    >
-                      {moment
-                        .utc(item?.created_at)
-                        .utcOffset("+05:30")
-                        .format("h:mm A")}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-            ))}
-
-            {/* Fullscreen Image Modal */}
-            <Modal
-              visible={isModalVisible}
-              transparent={true}
-              animationType="fade"
-              onRequestClose={toggleCloseModal}
-            >
-              <TouchableOpacity
-                style={{
-                  flex: 1,
-                  backgroundColor: "rgba(0,0,0,0.9)",
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-                onPress={toggleCloseModal}
-                activeOpacity={1}
-              >
-                {selectedImage && (
-                  <Image
-                    source={{ uri: selectedImage }}
-                    style={{
-                      width: width * 0.9,
-                      height: height * 0.7,
-                      resizeMode: "contain",
-                      borderRadius: 10,
-                    }}
-                  />
-                )}
-              </TouchableOpacity>
-            </Modal>
-          </View>
-        ))}
-      </View>
-    );
-  };
-
-  const AudioMessage = () => {
-    return (
-      <View
-        style={{
-          borderTopLeftRadius: 16,
-          borderTopRightRadius: 16,
-          borderBottomLeftRadius: 16,
-          backgroundColor: "#52348f",
-          padding: "10%",
-          flexDirection: "row",
-          alignItems: "center",
-          width: "100%",
-          marginTop: "5%",
-        }}
-      >
-        <View
-          style={{
-            borderTopLeftRadius: 16,
-            borderBottomLeftRadius: 16,
-            backgroundColor: globalColors.neutralWhite,
-            width: "2%",
-            height: "100%",
-          }}
-        />
-        <View
-          style={{
-            flex: 1,
-            borderTopRightRadius: 8,
-            borderBottomRightRadius: 8,
-            backgroundColor: "rgba(255, 255, 255, 0.1)",
-            flexDirection: "column",
-            alignItems: "flex-start",
-            justifyContent: "center",
-            padding: 12,
-          }}
-        >
-          <Text
-            style={{
-              position: "relative",
-              fontSize: 16,
-              letterSpacing: -0.2,
-              lineHeight: 20,
-              fontFamily: fontFamilies.semiBold,
-              color: globalColors.neutralWhite,
-            }}
-          >
-            Pooja
-          </Text>
-
-          <View
-            style={{
-              borderRadius: 16,
-              backgroundColor: "rgba(255, 255, 255, 0.2)",
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "flex-start",
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-            }}
-          >
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "flex-start",
-              }}
-            >
-              <PlayIcon />
-              <Text
-                style={{
-                  position: "relative",
-                  fontSize: 10,
-                  lineHeight: 13,
-                  fontFamily: fontFamilies.semiBold,
-                  color: globalColors.neutralWhite,
-                  marginLeft: 8,
-                }}
-              >
-                1:00
-              </Text>
-            </View>
-          </View>
-        </View>
-      </View>
-    );
-  };
-
-  const BottomSearch = () => {
-    return (
-      <View
-        style={{ backgroundColor: "pink", width: "90%", alignSelf: "center" }}
-      >
-        <View
-          style={{
-            flexDirection: "row",
-            width: "90%",
-          }}
-        >
-          <TextInput
-            style={{
-              fontSize: 14,
-              height: 45,
-              fontFamily: fontFamilies.regular,
-              color: globalColors.neutralWhite,
-              width: "100%",
-              textAlignVertical: "top",
-              borderWidth: 0.6,
-              borderColor: globalColors?.neutral4,
-              marginRight: "3%",
-              alignItems: "center",
-              padding: 14,
-              justifyContent: "center",
-              borderRadius: 15,
-              position: "absolute",
-              bottom: 10,
-            }}
-            numberOfLines={6}
-            placeholder={"Enter Comment..."}
-            placeholderTextColor={globalColors.neutral5}
-            onChangeText={(text) => handleOnPress(text)}
-            value={chatText}
-          />
-
-          {/* <TextInputComponent
-            placeHolder="Message"
-            style={{ width: "70%",  }}
-            // onChangeText={(text) => setChatText(text)}
-            value={chatText}
-            onChangeText={(text) => handleOnPress(text)}
-          /> */}
-
-          {/* <TouchableOpacity style={{}} onPress={() => onMessageSend(chatText)}>
-            <MicrophoneIcon />
-          
-          </TouchableOpacity> */}
-        </View>
-      </View>
-
-      // <>
-      //   {/* {imageFileData && (
-      //     <View
-      //       style={{
-      //         padding: "3%",
-      //         flexDirection: "row",
-      //         alignItems: "center",
-      //         width: "100%",
-      //         borderWidth: 1,
-      //         borderColor: "#565957",
-      //         borderRadius: 10,
-      //         marginBottom: "-5%",
-      //         marginTop: "2%",
-      //       }}
-      //     >
-      //       <PhotoIcon />
-      //       <Text
-      //         style={{
-      //           color: globalColors.neutralWhite,
-      //           fontSize: 12,
-      //           marginTop: "1%",
-      //           marginLeft: "2%",
-      //         }}
-      //       >
-      //         {imageFileData.name}
-      //       </Text>
-      //       <View
-      //         style={{
-      //           flex: 1,
-      //           alignItems: "flex-end",
-      //         }}
-      //       >
-      //         <TouchableOpacity onPress={() => setImageFileData(null)}>
-      //           <CloseIcon />
-      //         </TouchableOpacity>
-      //       </View>
-      //     </View>
-      //   )} */}
-      //   <View
-      //     style={{
-      //       flexDirection: "row",
-      //       backgroundColor: "red",
-      //       width: "90%",
-      //     }}
-      //   >
-
-      //     <View style={{}}>
-      //
-      //     </View>
-
-      //   </View>
-      // </>
-    );
-  };
-
-  const UserProfile = () => {
-    return (
-      <View
-        style={{
-          borderRadius: 8,
-          borderStyle: "solid",
-          borderColor: "#565957",
-          borderWidth: 1,
-          flexDirection: "row",
-          alignItems: "center",
-          padding: "4%",
-          marginBottom: "50%",
-        }}
-      >
-        <TouchableOpacity onPress={() => console.log("image")}>
-          {/* {chatUserDetails?.profile_pic ? (
-            <Image
-              source={{ uri: R2_PUBLIC_URL + chatUserDetails?.profile_pic }}
-              style={{ width: 40, height: 40, borderRadius: 20 }}
-            />
-          ) : (
-            <UserIcon />
-          )} */}
-
-          <ImageFallBackUser
-            widths={40}
-            imageData={chatUserDetails?.profile_pic}
-            fullName={chatUserDetails?.full_name}
-            heights={40}
-            borders={20}
-          />
-        </TouchableOpacity>
-        <View
-          style={{
-            flexDirection: "column",
-            marginLeft: 12,
-          }}
-        >
-          <View
-            style={{
-              alignSelf: "stretch",
-              flexDirection: "row",
-              alignItems: "center",
-            }}
-          >
-            <TouchableOpacity onPress={() => console.log("Deekshith")}>
-              <Text
-                style={{
-                  fontSize: 14,
-                  letterSpacing: -0.1,
-                  lineHeight: 20,
-                  fontFamily: fontFamilies.semiBold,
-                  color: globalColors.neutralWhite,
-                }}
-              >
-                {chatUserDetails?.full_name}
-              </Text>
-            </TouchableOpacity>
-            <VerifiedIcon />
-          </View>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "flex-start",
-              marginTop: 8,
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 12,
-                lineHeight: 16,
-                fontFamily: fontFamilies.regular,
-                color: globalColors.neutralWhite,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "flex-start",
-              }}
-            >
-              @{chatUserDetails?.social_name || chatUserDetails?.username}
-            </Text>
-            {/*  <View
-                  style={{
-                    width: 4,
-                    height: 4,
-                    borderRadius: 2,
-                    backgroundColor: globalColors.neutral7,
-                    marginLeft: 8,
-                  }}
-                />
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                marginLeft: 8,
-              }}
-            >
-              <FlashIcon />
-              <Text
-                style={{
-                  fontSize: 12,
-                  lineHeight: 16,
-                  fontFamily: fontFamilies.light,
-                  color: globalColors.neutralWhite,
-                  marginLeft: 4,
-                }}
-              >
-                {chatUserDetails?.points } perks
-              </Text>
-            </View> */}
-          </View>
-        </View>
-      </View>
-    );
-  };
-  const PhotoRef = useRef<BottomSheet>(null);
-  const MoreRef = useRef<BottomSheet>(null);
-  const MuteNotifiRef = useRef<BottomSheet>(null);
-  const removeMemberRef = useRef<BottomSheet>(null);
-  const ClearConRef = useRef<BottomSheet>(null);
-  const OptionsSenderRef = useRef<BottomSheet>(null);
-  const OptionsMessageRef = useRef<BottomSheet>(null);
-  const DeleteMessageRef = useRef<BottomSheet>(null);
-
-  //temp
-  const BlockUserRef = useRef<BottomSheet>(null);
-  const profileOptionRef = useRef<BottomSheet>(null);
-
-  const scrollViewRef = useRef<ScrollView>(null);
   const { updateUserData } = UserStoreDataModel();
   const scrollToBottom = () => {
     scrollViewRef.current?.scrollToEnd({ animated: false });
   };
 
   useEffect(() => {
-    // Scroll to bottom when messages change
     scrollToBottom();
   }, [supabaseChat]);
 
@@ -831,17 +305,39 @@ const UserChatScreen = () => {
       profilePic: ProfilePic,
       reportType: "profile",
     });
-    profileOptionRef.current.close();
-    router.push("/ReportProfileScreen");
+    setIsOptionVisible(false);
+    setIsChatOptionVisible(false);
+    reportTimerRef.current = setTimeout(() => {
+      router.push("/ReportProfileScreen");
+    }, 100);
   };
+
   const onPressBlockOption = () => {
-    profileOptionRef.current.close();
-    BlockUserRef.current.expand();
+    setIsOptionVisible(false);
+    setIsChatOptionVisible(false);
+    setIsClearVisible(false);
+    if(blockTimerRef.current){
+      clearTimeout(blockTimerRef.current);
+    }
+    blockTimerRef.current = setTimeout(() => {
+      setIsOptionVisible(true);
+      setIsBlockVisible(true);
+    }, 1500);
   };
 
   const onSubmitBlockHandler = ({ profileId, isBlock }) => {
-    BlockUserRef.current.close();
+    setIsBlockVisible(false);
+    setIsOptionVisible(false);
     onPressBlockHandler({ profileId: profileId, isBlock: isBlock });
+    if (refreshTimeout.current) {
+      clearTimeout(refreshTimeout.current);
+      refreshTimeout.current = null;
+    }
+
+    refreshTimeout.current = setTimeout(() => {
+      onFetchUserMessageHandler({ userId: userId, profileId: id });
+    }, 500);
+
   };
 
   const backPre = () => {
@@ -852,267 +348,356 @@ const UserChatScreen = () => {
     }
   };
 
+  // Group chats by date and flatten for FlatList
+  const flattenedChatData = useMemo(() => {
+    const groupedChats = supabaseChat.reduce<Record<string, any[]>>(
+      (acc, chat) => {
+        const date = new Date(chat.created_at).toDateString();
+        if (!acc[date]) {
+          acc[date] = [];
+        }
+        acc[date].push(chat);
+        return acc;
+      },
+      {}
+    );
+
+    const sortedGroupedChats = Object.entries(groupedChats).map(
+      ([date, chats]) => ({
+        date,
+        chats: (chats as any[]).sort(
+          (a, b) =>
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        ),
+      })
+    );
+
+    const flatData = [];
+    sortedGroupedChats.forEach((group) => {
+      flatData.push({
+        type: "date",
+        date: group.date,
+        id: `date-${group.date}`,
+      });
+      group.chats.forEach((chat) => {
+        flatData.push({
+          type: "message",
+          ...chat,
+          id: chat._id,
+        });
+      });
+    });
+
+    return flatData.reverse();
+  }, [supabaseChat]);
+
+  const [isModalVisible, setModalVisible] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+
+  const toggleModal = useCallback((imageUri) => {
+    if (imageUri) {
+      setSelectedImage(imageUri);
+      setModalVisible(true);
+    }
+  }, []);
+
+  const toggleCloseModal = useCallback(() => {
+    setModalVisible(false);
+    setSelectedImage(null);
+  }, []);
+
+  const renderChatItem = useCallback(
+    ({ item }) => {
+      if (item.type === "date") {
+        return (
+          <View style={styles.dateContainer}>
+            <Text style={styles.dateText}>{item.date}</Text>
+          </View>
+        );
+      }
+
+      return (
+        <RenderChatView
+          item={item}
+          userId={userId}
+          handleLongPress={handleLongPress}
+          toggleModal={toggleModal}
+        />
+      );
+    },
+    [userId, handleLongPress, toggleModal]
+  );
+
+  const renderHeader = useCallback(() => {
+    if (isLoadingMore) {
+      return (
+        <View style={styles.heraderLoadingContainer}>
+          <ActivityIndicator size="small" color={globalColors.lightShadeNew} />
+          <Text style={styles.loadingText}>Loading more messages...</Text>
+        </View>
+      );
+    }
+    return null;
+  }, [isLoadingMore]);
+
+  const keyExtractor = useCallback((item, index) => {
+    return item.id || `fallback-${index}-${Date.now()}`;
+  }, []);
+
+  const canSendMessages = useMemo(() => {
+    return (
+    (chatUserDetails?.block_by_me == 0 &&
+        chatUserDetails?.block_by_user == 0 &&
+        chatUserDetails?.follow_by_me == 1 &&
+        chatUserDetails?.follow_by_user == 1)
+    );
+  }, [chatUserDetails]);
+
+  const handleOnPress = (text) => {
+    setChatText(text);
+  };
+
+  const handleProfileOption = () => {
+    if (profileTimerRef.current) {
+      clearTimeout(profileTimerRef.current);
+      profileTimerRef.current = null;
+    }
+    // Dismiss keyboard immediately
+    Keyboard.dismiss();
+
+    // Wait a bit for keyboard to fully dismiss, then open bottom sheet
+    profileTimerRef.current = setTimeout(() => {
+      try {
+        setIsOptionVisible(true);
+        setIsClearVisible(false);
+        setIsBlockVisible(false);
+        setIsChatOptionVisible(true);
+      } catch (error) {
+        console.log("Error expanding bottom sheet:", error);
+      }
+      profileTimerRef.current = null;
+    }, 300);
+  };
+
+  useEffect(() => {
+    return () => {
+      // Clear ALL timeouts on component unmount
+      if (keyboardTimeoutRef.current) {
+        clearTimeout(keyboardTimeoutRef.current);
+      }
+      if (profileTimerRef.current) {
+        clearTimeout(profileTimerRef.current);
+      }
+    };
+  }, []);
+
+  const mediaViewCloseHandler = () => {
+    setIsMediaVisible(false);
+    if (mediaTimerRef.current) {
+      clearTimeout(mediaTimerRef.current);
+      mediaTimerRef.current = null;
+    }
+  };
+
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"} // Adjust behavior based on platform
-    >
-      <ViewWrapper>
-        <View
-          style={{
-            width: "100%",
-            flexDirection: "row",
-            alignItems: "center",
-          }}
+    <ViewWrapper>
+      <ChatHeaderView
+        chatUserDetails={chatUserDetails}
+        profilePress={profilePress}
+        backPre={backPre}
+        from={from}
+        name={name}
+        logo={logo}
+        paramsData={params}
+        onOptionsPress={() => {
+          handleProfileOption();
+        }}
+      />
+
+      <View style={{ flex: 1, width: "95%" }}>
+        {isInitialLoad ? (
+          <View style={styles.initContainer}>
+            <ActivityIndicator
+              size="large"
+              color={globalColors.lightShadeNew}
+            />
+            <Text style={styles.loadingText}>Loading messages...</Text>
+          </View>
+        ) : flattenedChatData.length === 0 ? (
+          <RenderEmptyState
+            from={from}
+            chatUserDetails={chatUserDetails}
+            chatUserData={chatUserData}
+            paramsData={params}
+            setChatText={setChatText}
+            sharePhotoPress={() => {
+              Keyboard.dismiss();
+              mediaTimerRef.current = setTimeout(() => {
+                setIsMediaVisible(true);
+              }, 300);
+            }}
+          />
+        ) : (
+          <FlatList
+            data={flattenedChatData}
+            renderItem={renderChatItem}
+            keyExtractor={keyExtractor}
+            showsVerticalScrollIndicator={false}
+            inverted
+            onEndReached={onLoadMore}
+            onEndReachedThreshold={0.3}
+            ListFooterComponent={renderHeader}
+            maintainVisibleContentPosition={{
+              minIndexForVisible: 0,
+              autoscrollToTopThreshold: 10,
+            }}
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={20}
+            windowSize={10}
+            initialNumToRender={20}
+          />
+        )}
+
+        <Modal
+          visible={isModalVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={toggleCloseModal}
         >
           <TouchableOpacity
-            onPress={() => backPre()}
-            // style={{ right: "45%", marginTop: "3%" }}
+            style={styles.modalOverlay}
+            onPress={toggleCloseModal}
+            activeOpacity={1}
           >
-            <ArrowLeftBigIcon style={{ left: "25%" }} />
+            {selectedImage && (
+              <Image
+                source={{ uri: selectedImage }}
+                style={styles.modalImage}
+              />
+            )}
           </TouchableOpacity>
-          <Header />
-        </View>
+        </Modal>
+      </View>
 
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          ref={scrollViewRef}
-          style={{
-            flex: 1,
-            width: "90%",
-          }}
-          contentContainerStyle={{
-            flexGrow: 1,
-            justifyContent: "flex-end", // This will push content to the bottom
-          }}
-          onContentSizeChange={scrollToBottom} // Scroll to bottom when content size changes
-          onLayout={scrollToBottom} // Scroll to bottom on initial layout
-        >
-          <Chats />
-        </ScrollView>
-
-        {/* new haroon */}
-        <View
-          style={{
-            width: "90%",
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          {imageData ? (
-            <TouchableOpacity
-              style={{}}
-              onPress={() => PhotoRef.current.expand()}
-            >
-              <View style={styles.imageWrapper}>
-                <Image source={{ uri: imageData }} style={styles.image} />
-                <TouchableOpacity
-                  onPress={handleRemoveImage}
-                  style={styles.closeButton}
-                >
-                  <View style={styles.closeCircle}>
-                    <CloseIcon />
-                  </View>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={{}}
-              onPress={() =>{
-                Keyboard.dismiss();
-                PhotoRef.current.expand()
-              }}
-            >
-              <AddIcon />
-            </TouchableOpacity>
-          )}
-          <TextInput
-            style={{
-              fontSize: 14,
-              height: 55,
-              fontFamily: fontFamilies.regular,
-              color: globalColors.neutralWhite,
-              width: "78%",
-              // textAlignVertical: "top",
-              borderWidth: 0.6,
-              borderColor: globalColors?.neutral4,
-              marginLeft: 10,
-              alignItems: "center",
-              padding: 10,
-              justifyContent: "center",
-              borderRadius: 15,
-            }}
-            // numberOfLines={6}
-            placeholder={"Message..."}
-            placeholderTextColor={globalColors.neutral5}
-            value={chatText}
-            onChangeText={(text) => handleOnPress(text)}
-            // onSubmitEditing={() => onMessageSend(chatText)}
-
-            // keyboardType={keyboardType ? keyboardType : "default"}
-          />
-
-          <TouchableOpacity style={{}} onPress={() => onMessageSend(chatText)}>
-            <PaperPlaneIcon />
-          </TouchableOpacity>
-        </View>
-        {/* <AudioMessage /> */}
-        {/* <BottomSearch /> */}
-        {/* <GiftedChat
-          messages={supabaseChat}
-          onSend={(messages) => onSend(messages)}
-          user={{
-            _id: 1,
-          }}
-        /> */}
-
-        {/* temp */}
-        <ChatOptionBottomSheet
-          profileOptionRef={profileOptionRef}
-          screen={"Chat"}
-          onPressReportOption={() =>
-            onPressReportOption({
-              reportId: chatUserDetails?.id,
-              name: chatUserDetails?.full_name,
-              ProfilePic: chatUserDetails?.profile_pic,
-            })
-          }
-          onPressBlockOption={onPressBlockOption}
-          onPressClearOption={() => {
-            profileOptionRef.current.close();
-            ClearConRef.current.expand();
-          }}
-        />
-        {/* 4  onSelect Block option from profile option sheet*/}
-        <BlockUserBottomSheet
-          BlockUserRef={BlockUserRef}
-          onPressBlockButton={() =>
-            onSubmitBlockHandler({
-              profileId: chatUserDetails?.id,
-              isBlock: 1,
-            })
-          }
-          loading={blockLoading}
-        />
-
-        {/* 1 */}
-        <SelectMediaBottomSheet
-          mediaRef={PhotoRef}
-          onPressCamera={onTakeSelfieHandler}
-          onPressGallary={onPressGallary}
-          onCaptureImage={onCaptureImage}
-          //@ts-ignore
-          imageData={imageData}
-          imageFileData={imageFileData}
-        />
-
-        {/* 5 */}
-        <BottomSheetWrap
-          bottomSheetRef={ClearConRef}
-          snapPoints={["20%", "40%"]}
-        >
-          <View style={{ alignItems: "center" }}>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                width: "100%",
-                justifyContent: "center",
-                marginBottom: "5%",
-              }}
-            >
-              <Text
-                style={{
-                  color: globalColors.neutralWhite,
-                  fontSize: 20,
-                  textAlign: "center",
-                }}
-              >
-                Clear conversation
-              </Text>
-            </View>
-            <View
-              style={{
-                padding: "3%",
-                borderRadius: 10,
-                backgroundColor: "#2B0A6E",
-              }}
-            >
-              <Text
-                style={{
-                  color: "gray",
-                  fontSize: 14,
-                  textAlign: "center",
-                }}
-              >
-                This conversation will be deleted from your inbox. Other people
-                in the conversation will still be able to see it.
-              </Text>
-            </View>
-
-            <Button1
-              isLoading={false}
-              title="Clear chat"
-              onPress={() => clearChatConfirm()}
-            />
-            <TouchableOpacity onPress={() => ClearConRef.current.close()}>
-              <GradientText
-                style={{
-                  fontFamily: fontFamilies.bold,
-                  fontSize: 17,
-                  color: globalColors.darkOrchid,
-                  textAlign: "center",
-                }}
-              >
-                <Text
-                  style={{ color: globalColors.neutralWhite, fontSize: 17 }}
-                >
-                  Cancel
-                </Text>
-              </GradientText>
-            </TouchableOpacity>
-          </View>
-        </BottomSheetWrap>
-      </ViewWrapper>
-
-      <DeleteMessageBottomSheet
-        DeleteMessageRef={DeleteMessageRef}
-        handleDeleteMessage={handleDeleteMessage}
+      <ChatInputSection
+        isInitialLoad={isInitialLoad}
+        canSendMessages={canSendMessages}
+        chatUserDetails={chatUserDetails}
+        handleOnPress={handleOnPress}
+        handleRemoveImage={handleRemoveImage}
+        imageData={imageData}
+        isKeyboardVisible={isKeyboardVisible}
+        keyboardHeight={keyboardHeight}
+        userId={userId}
+        chatText={chatText}
+        insets={insets}
+        onMessageSend={onMessageSend}
+        mediaPress={() => {
+          Keyboard.dismiss();
+          mediaTimerRef.current = setTimeout(() => {
+            setIsMediaVisible(true);
+          }, 300);
+        }}
       />
-    </KeyboardAvoidingView>
+
+      <CustomBottomView
+        visible={isMediaVisible}
+        onClose={() => {
+          mediaViewCloseHandler();
+        }}
+        title="Select Media"
+        snapPoints={[0.6, 0.9]}
+      >
+        <MediaSelectView
+          onCancelHandler={() => {
+            mediaViewCloseHandler();
+          }}
+          onPressCamera={() => {
+            mediaViewCloseHandler();
+            if (mediaViewTimerRef.current) {
+              clearTimeout(mediaViewTimerRef.current);
+              mediaViewTimerRef.current = null;
+            }
+            mediaViewTimerRef.current = setTimeout(() => {
+              onTakeSelfieHandler();
+            }, 300);
+          }}
+          onPressGallary={() => {
+            mediaViewCloseHandler();
+            if (mediaViewTimerRef.current) {
+              clearTimeout(mediaViewTimerRef.current);
+              mediaViewTimerRef.current = null;
+            }
+            mediaViewTimerRef.current = setTimeout(() => {
+              onPressGallary();
+            }, 300);
+          }}
+        />
+      </CustomBottomView>
+
+      <CustomBottomView
+        visible={isOptionVisible}
+        onClose={() => {
+          setIsOptionVisible(false);
+          setIsClearVisible(false);
+          setIsBlockVisible(false);
+          setIsChatOptionVisible(false);
+        }}
+        title="Chat Option"
+        snapPoints={isBlockVisible ? [0.9, 0.9] : [0.5, 0.9]}
+      >
+        {isClearVisible ? (
+          <ClearConversation
+            clearChatConfirm={clearChatConfirm}
+            cancelHandler={() => {
+              setIsOptionVisible(false);
+              setIsClearVisible(false);
+            }}
+          />
+        ) : isBlockVisible ? (
+          <BlockUserView
+            onPressBlockButton={() =>
+              onSubmitBlockHandler({
+                profileId: chatUserDetails?.id,
+                isBlock: chatUserDetails?.block_by_me == 0 ? 1 : 0,
+              })
+            }
+            loading={blockLoading}
+            block={chatUserDetails?.block_by_me == 0 ? true : false}
+          />
+        ) : (
+          <ChatOptionView
+            onPressReportOption={() =>
+              onPressReportOption({
+                reportId: chatUserDetails?.id,
+                name: chatUserDetails?.full_name,
+                ProfilePic: chatUserDetails?.profile_pic,
+              })
+            }
+            onPressBlockOption={onPressBlockOption}
+            block={chatUserDetails?.block_by_me == 0 ? true : false}
+            onPressClearOption={() => {
+              setIsClearVisible(true);
+            }}
+            screen={"Chat"}
+          />
+        )}
+      </CustomBottomView>
+      <CustomBottomView
+        visible={isDeleteMessageVisible}
+        onClose={() => {
+          setIsDeleteMessageVisible(false);
+        }}
+        title="Delete Message"
+        snapPoints={[0.5, 0.9]}
+      >
+        <DeleteMessageChat
+          handleDeleteMessage={handleDeleteMessage}
+          cancelHandler={() => setIsDeleteMessageVisible(false)}
+        />
+      </CustomBottomView>
+    </ViewWrapper>
   );
 };
-const styles = StyleSheet.create({
-  imageWrapper: {
-    position: "relative",
-  },
-  image: {
-    width: 40,
-    height: 45,
-    borderRadius: 7,
-  },
-  closeButton: {
-    position: "absolute",
-    top: -5,
-    right: -5,
-  },
-  closeCircle: {
-    width: 18,
-    height: 18,
-    backgroundColor: "#000",
-    borderRadius: 9,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: globalColors.neutralWhite,
-  },
-  closeInner: {
-    width: 8,
-    height: 8,
-    backgroundColor: "lime",
-    borderRadius: 4,
-  },
-});
+
 export default UserChatScreen;

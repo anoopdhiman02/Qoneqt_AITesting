@@ -31,9 +31,9 @@ import { upgradePostData } from "@/redux/slice/post/PostDetailSlice";
 const { height, width } = Dimensions.get("screen");
 
 const categories = [
-  { id: 1, name: "Profile" },
-  { id: 2, name: "Posts" },
+  { id: 1, name: "Profiles" },
   { id: 3, name: "Groups" },
+  { id: 2, name: "Posts" },
   { id: 4, name: "#hashtag" },
 ];
 
@@ -42,17 +42,19 @@ const CategoryItem = ({ item, onPress, isSelected }) => (
     onPress={() => onPress(item)}
     style={{
       paddingHorizontal: 10,
-      paddingVertical: 8,
-      borderRadius: 5,
+      // paddingVertical: 8,
+      borderRadius: 20,
       margin: 4,
       height: 36,
       justifyContent: "center",
       alignItems: "center",
       backgroundColor: isSelected
-        ? globalColors.darkOrchidShade60
+        ? globalColors.slateBlueTint20
         : globalColors.darkOrchidShade80,
       width: 90,
       bottom: 5,
+      borderWidth: 1,
+      borderColor: globalColors.subgroupBorder,
     }}
   >
     <Text
@@ -322,10 +324,12 @@ const SearchScreen = () => {
             alignItems: "center",
             width: "94%",
             backgroundColor: globalColors.darkOrchidShade80,
-            borderRadius: 8,
-            paddingHorizontal: 10,
+            borderRadius: 15,
+            paddingHorizontal: 6,
             marginTop: "5%",
             marginHorizontal: "3%",
+            borderWidth: 1,
+            borderColor: globalColors.subgroupBorder,
           }}
         >
           <TouchableOpacity onPress={handleGoBack}>

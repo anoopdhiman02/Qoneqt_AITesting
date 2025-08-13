@@ -31,80 +31,102 @@ import { LinearGradient } from "expo-linear-gradient";
 import moment from "moment";
 import { ImageFallBackUser } from "@/utils/ImageUrlConcat";
 import { useScreenTracking } from "@/customHooks/useAnalytics";
+import { Ionicons } from "@expo/vector-icons";
+import { FlashList } from "@shopify/flash-list";
+import { formatNotificationDate } from "@/utils/dateFormat";
 
 //@ts-ignore
-const UserProfile = React.memo(({ data = [], onPressChat }: { data?: any; onPressChat?: any }) => (
-  <View style={styles.chatContent}>
-    {data.map((item: any, index: any) => (
-      <TouchableOpacity
-        key={index}
-        onPress={() => onPressChat(item?.user?.id)}
-        activeOpacity={0.8}
-      >
-        <View style={styles.chatItemContainer}>
-          {/* User Profile Image & Name */}
-          <View style={styles.nameRow}>
-            <ImageFallBackUser
-              imageData={item?.user?.profileImg || item?.user?.profile_pic}
-              fullName={item?.user?.name || item?.user?.full_name}
-              widths={50}
-              heights={50}
-              borders={25}
-            />
-            <View style={styles.nameContent}>
-              <View style={styles.nameRows}>
+const UserProfile = React.memo(
+  ({ data = [], onPressChat }: { data?: any; onPressChat?: any }) => (
+    <View style={styles.chatContent}>
+      {data.map((item: any, index: any) => (
+        <TouchableOpacity
+          key={index}
+          onPress={() => onPressChat(item?.user)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.chatItemContainer}>
+            {/* User Profile Image & Name */}
+            <View style={styles.nameRow}>
+              <ImageFallBackUser
+                imageData={item?.user?.profileImg || item?.user?.profile_pic}
+                fullName={item?.user?.name || item?.user?.full_name}
+                widths={50}
+                heights={50}
+                borders={25}
+              />
+              <View style={styles.nameContent}>
+                <View style={styles.nameRows}>
+                  <Text
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    style={styles.name}
+                  >
+                    {item?.user?.name || item?.user?.full_name}
+                  </Text>
+                  {item.user?.kyc_status == 1 && <VerifiedIcon />}
+                </View>
                 <Text
                   numberOfLines={1}
                   ellipsizeMode="tail"
-                  style={styles.name}
+                  style={styles.message}
                 >
-                  {item?.user?.name || item?.user?.full_name}
+                  {item.message_type == "image" && "🖼️ "}
+                  {item.message_type == "video" && "🎥 "}
+                  {item.last_msg}
                 </Text>
-                {item.user?.kyc_status == 1 && <VerifiedIcon />}
               </View>
-              <Text
-                numberOfLines={1}
-                ellipsizeMode="tail"
-                style={styles.message}
->
-                {item.last_msg}
-              </Text>
             </View>
-          </View>
 
-          {/* Time & Unread Message Info */}
-          <View style={styles.rightSection}>
-            <Text style={styles.time}>{moment
-                .utc(item?.created_at)
-                .utcOffset("+05:30")
-                .format("h:mm A")}</Text>
-            <View style={styles.unreadContainer}>
-              {item?.unread_count > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
-                    {item?.unread_count < 10
-                      ? item?.unread_count
-                      : `+${item?.unread_count - (item?.unread_count % 5)}`}
-                  </Text>
-                </View>
-              )}
-              {item.seen !== 0 && (
-                <Image
-                  style={styles.seenIcon}
-                  source={require("@/assets/image/checks.png")}
-                />
-              )}
+            {/* Time & Unread Message Info */}
+            <View style={styles.rightSection}>
+              <Text style={styles.time}>
+                {formatNotificationDate(item?.created_at)}
+              </Text>
+              <View style={styles.unreadContainer}>
+                {item?.unread_count > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>
+                      {item?.unread_count < 10
+                        ? item?.unread_count
+                        : `+${item?.unread_count - (item?.unread_count % 5)}`}
+                    </Text>
+                  </View>
+                )}
+                {item.seen !== 0 && item?.user?.id != item.sender && (
+                  // <Image
+                  //   style={styles.seenIcon}
+                  //   source={require("@/assets/image/checks.png")}
+                  // />
+                  <Ionicons
+                    name="checkmark-done"
+                    size={20}
+                    color={globalColors.slateBlueTint20}
+                  />
+                )}
+                {item.seen == 0 && item?.user?.id != item.sender && (
+                  <Ionicons name="checkmark" size={20} color="grey" />
+                )}
+              </View>
             </View>
           </View>
-        </View>
-      </TouchableOpacity>
-    ))}
-  </View>
-));
+        </TouchableOpacity>
+      ))}
+    </View>
+  )
+);
 
 const UserProfileChat = React.memo(
   //@ts-ignore
-  ({ data = [], onPressChat, selectedUser }: { data?: any; onPressChat?: any; selectedUser?: any }) => (
+  ({
+    data = [],
+    onPressChat,
+    selectedUser,
+  }: {
+    data?: any;
+    onPressChat?: any;
+    selectedUser?: any;
+  }) => (
     <FlatList
       style={{ marginTop: 10 }}
       data={data}
@@ -115,7 +137,10 @@ const UserProfileChat = React.memo(
         index,
       })}
       renderItem={({ item, index }) => (
-        <TouchableOpacity key={(index+1).toString()} onPress={() => onPressChat(item?.id)}>
+        <TouchableOpacity
+          key={(index + 1).toString()}
+          onPress={() => onPressChat(item)}
+        >
           <View
             style={{
               flexDirection: "row",
@@ -123,9 +148,14 @@ const UserProfileChat = React.memo(
               justifyContent: "space-between",
               padding: 10,
               borderRadius: 10,
+              borderWidth: 1,
+              borderColor:
+                selectedUser?.id == item?.id
+                  ? globalColors.subgroupBorder
+                  : "transparent",
               backgroundColor:
-                selectedUser === item?.id
-                  ? globalColors.neutral3
+                selectedUser?.id == item?.id
+                  ? globalColors.slateBlueShade60
                   : "transparent",
             }}
           >
@@ -156,7 +186,7 @@ const UserProfileChat = React.memo(
             <Image
               style={{ width: 20, height: 20 }}
               source={
-                selectedUser === item?.id
+                selectedUser?.id == item?.id
                   ? require("@/assets/image/checkcircle.png")
                   : require("@/assets/image/radio-botton1.png")
               }
@@ -219,9 +249,13 @@ const ChatListScreen = () => {
 
   const filteredMessageList = useMemo(
     () =>
-      (messagesList?.length > 0 ? messagesList : messagesRedisList).filter(
-        (message) =>
-          (message.user.name || message.user.full_name).toLowerCase().includes(searchMain.toLowerCase())
+      (messagesList != null && messagesList?.length > 0
+        ? messagesList
+        : messagesRedisList || []
+      ).filter((message) =>
+        (message.user.name || message.user.full_name)
+          .toLowerCase()
+          .includes(searchMain.toLowerCase())
       ),
     [searchMain, messagesList, messagesRedisList]
   );
@@ -251,11 +285,19 @@ const ChatListScreen = () => {
     StartChatRef.current.expand();
   };
 
-  const onPressViewChat = (id: number) => {
+  const onPressViewChat = (item: any) => {
     StartChatRef.current.close();
     router.push({
       pathname: "/UserChatScreen",
-      params: { id: id, from: 1, isNotification: "false" },
+      params: {
+        id: item?.id,
+        from: 1,
+        isNotification: "false",
+        name: item?.full_name,
+        logo: item?.profile_pic,
+        kyc: item?.kyc_status || 0,
+        chatUser: JSON.stringify(item)
+      },
     });
   };
 
@@ -264,26 +306,58 @@ const ChatListScreen = () => {
       StartChatRef.current.close();
       router.push({
         pathname: "/UserChatScreen",
-        params: { id: selectedUser, from: 1, isNotification: "false" },
+        params: {
+          id: selectedUser?.id,
+          from: 1,
+          isNotification: "false",
+          name: selectedUser?.full_name,
+          logo: selectedUser?.profile_pic,
+          kyc: selectedUser?.kyc_status || 0,
+          chatUser: JSON.stringify(selectedUser)
+        },
       });
       setSelectedUser(null);
     }
   }, [selectedUser]);
 
-  const onPressUser = (id: number) => {
-    setSelectedUser(id);
+  const onPressUser = (user: any) => {
+    setSelectedUser(user);
     setIsSearchDisabled(true);
   };
 
-  const renderProfileItem = ({ item }: { item?: any }) => {
+  const renderProfileItem = useCallback(({ item, index }: { item?: any, index?: number }) => {
     return (
       <>
         <UserProfile data={[item]} onPressChat={onPressViewChat} />
       </>
     );
-  };
+  }, [onPressViewChat, filteredMessageList]);
 
-  const ListEmptyComponent = () => {
+  // const ListEmptyComponent = () => {
+  //   if (isLoading) {
+  //     return (
+  //       <FlatList
+  //         data={[...Array(6)]}
+  //         renderItem={() => renderShimmer()}
+  //         keyExtractor={(_, index) => `shimmer-${index}`}
+  //       />
+  //     );
+  //   } else {
+  //     return (
+  //       <StatusComponent
+  //         subtitle="You have no messages yet!"
+  //         imageSource={require("@/assets/image/welcomeImage.png")}
+  //         title="You have no messages yet!"
+  //         // buttonLabel="Start a chat"
+  //         onButtonPress={() => console.log("test")}
+  //         showButton={false}
+  //       />
+  //     );
+  //   }
+  // };
+
+  // 1. Memoize the ListEmptyComponent to prevent re-creation
+  const ListEmptyComponent = useCallback(() => {
     if (isLoading) {
       return (
         <FlatList
@@ -292,20 +366,20 @@ const ChatListScreen = () => {
           keyExtractor={(_, index) => `shimmer-${index}`}
         />
       );
-    } 
-    // else {
-    //   return (
-    //     <StatusComponent
-    //       subtitle="You have no messages yet!"
-    //       imageSource={require("@/assets/image/welcomeImage.png")}
-    //       title="You have no messages yet!"
-    //       // buttonLabel="Start a chat"
-    //       onButtonPress={() => console.log("test")}
-    //       showButton={false}
-    //     />
-    //   );
-    // }
-  };
+    } else {
+      return (
+        <StatusComponent
+          subtitle="Say Hello, to start a chat"
+          imageSource={require("@/assets/image/welcomeImage.png")}
+          title="You have no messages yet!"
+          onButtonPress={() => console.log("test")}
+          showButton={false}
+        />
+      );
+    }
+  }, [isLoading]);
+
+  // console.log("filteredMessageList length:", filteredMessageList.length);
 
   return (
     <ViewWrapper isBottomTab={true}>
@@ -314,20 +388,21 @@ const ChatListScreen = () => {
         <View style={styles.searchBox}>
           <SearchIcon style={{ marginRight: 10 }} />
           <TextInput
-            placeholder="Search"
+            placeholder="Type here to search user..."
             value={searchMain}
             onChangeText={setSearchMain}
             placeholderTextColor={globalColors.neutral7}
             style={styles.searchInput}
           />
         </View>
-
-        <FlatList
-          data={filteredMessageList}
+        <FlashList
+          data={[...filteredMessageList]}
           keyExtractor={(item) => item?.id.toString()}
           renderItem={renderProfileItem}
           ListEmptyComponent={ListEmptyComponent}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={true} // To see if scrolling is available
+          estimatedItemSize={filteredMessageList?.length || 100}
         />
 
         <TouchableOpacity
@@ -339,7 +414,7 @@ const ChatListScreen = () => {
       </View>
 
       <BottomSheetWrap bottomSheetRef={StartChatRef}>
-        <View style={{ height: "88%" }}>
+        <View style={{ height: "100%" }}>
           <Text
             style={{
               color: globalColors.neutralWhite,
@@ -356,8 +431,8 @@ const ChatListScreen = () => {
             containerHeight={50}
             disabled={isSearchDisabled}
           />
-          <FlatList
-            data={filteredUserList}
+          <FlashList
+            data={[...filteredUserList]}
             keyExtractor={(item, index) => index.toString()}
             renderItem={({ item }) => (
               <UserProfileChat
@@ -366,17 +441,19 @@ const ChatListScreen = () => {
                 selectedUser={selectedUser}
               />
             )}
-            style={{ marginVertical: 15 }}
+            // style={{}}
             keyboardShouldPersistTaps="handled"
+            estimatedItemSize={filteredUserList?.length || 100}
+            ListFooterComponent={<View style={{ marginTop: 10, marginBottom: 10 }}>
+            {filteredUserList.length > 0 && selectedUser?.id && <Button1
+              isLoading={false}
+              title="Start chat"
+              onPress={onPressChat}
+            />}
+          </View>}
           />
         </View>
-        <View style={{ marginTop: "auto", marginBottom: "auto" }}>
-          <Button1
-            isLoading={false}
-            title="Start chat"
-            onPress={selectedUser ? onPressChat : null}
-          />
-        </View>
+        
       </BottomSheetWrap>
     </ViewWrapper>
   );
@@ -392,7 +469,7 @@ const styles = StyleSheet.create({
     width: "100%",
     borderRadius: 8,
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 8,
     marginTop: "5%",
     borderColor: globalColors.neutral2,
     borderWidth: 1,
@@ -419,24 +496,29 @@ const styles = StyleSheet.create({
   chatItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: globalColors.neutral2,
+    // backgroundColor: globalColors.subgroupBG,
     borderRadius: 15,
     padding: 15,
     marginBottom: 10,
   },
-  chatContent: { flex: 1, marginTop: "1%" },
+  chatContent: {
+    flex: 1,
+    marginTop: "1%",
+  },
   chatItemContainer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: globalColors.neutral2,
+    backgroundColor: globalColors.subgroupBG,
     borderRadius: 15,
-    padding: 15,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
+    padding: 12,
+    // shadowColor: "rgba(116, 84, 244, 0.1)",
+    // shadowOffset: { width: 0, height: 1 },
+    // shadowOpacity: 0.2,
+    // shadowRadius: 3,
+    // elevation: 3,
+    borderWidth: 1,
+    borderColor: globalColors.subgroupBorder,
   },
   nameRow: { flexDirection: "row", alignItems: "center", flex: 1 },
   nameContent: { marginLeft: 15, flex: 1 },
@@ -446,6 +528,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamilies.semiBold,
     color: globalColors.neutralWhite,
     marginRight: 5,
+    maxWidth: "80%",
   },
   message: {
     fontSize: 14,
@@ -483,7 +566,7 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 10,
   },
-  selected: { backgroundColor: globalColors.neutral3 },
+  // selected: { backgroundColor: globalColors.neutral3 },
   fab: {
     position: "absolute",
     bottom: 10,

@@ -172,6 +172,7 @@ const ChatOptionBottomSheet = ({
   onPressBlockOption,
   onPressClearOption,
   screen,
+  block = true
 }) => {
   return (
     <BottomSheetWrap
@@ -241,7 +242,7 @@ const ChatOptionBottomSheet = ({
               marginTop: "1%",
             }}
           >
-            Block
+            {block ? "Block" : "Unblock"}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -287,7 +288,7 @@ const DeleteMessageBottomSheet = ({
   return (
     <BottomSheetWrap
       bottomSheetRef={DeleteMessageRef}
-      snapPoints={["10%", "30%"]}
+      snapPoints={["15%", "40%"]}
     >
       <View style={{ alignItems: "center" }}>
         <View

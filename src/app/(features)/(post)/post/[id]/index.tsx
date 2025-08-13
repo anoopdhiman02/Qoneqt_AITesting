@@ -31,7 +31,7 @@ import { onCommentDelete } from "@/redux/reducer/post/CommentDelete";
 import useHomeViewModel from "@/app/(features)/(home)/viewModel/HomeViewModel";
 import { onFetchPostDetail } from "@/redux/reducer/post/PostDetailsApi";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { setPostDetailsLoading } from "@/redux/slice/post/PostDetailSlice";
+import { setPostDetailsLoading, upgradePostData } from "@/redux/slice/post/PostDetailSlice";
 import DeleteCommentView from "@/components/DeleteCommentView";
 import Track_Player from "@/components/AudioPlayer/TrackPlayer";
 import UserStoreDataModel from "@/viewModels/UserStoreDataModal";
@@ -53,6 +53,7 @@ import { showToast } from "@/components/atom/ToastMessageComponent";
 import { useScreenTracking } from "@/customHooks/useAnalytics";
 import { shallowEqual, useSelector } from "react-redux";
 import useKeyboardVisible from "@/app/hooks/useKeyboardVisible";
+import { calculateHeight } from "@/utils/ImageHelper";
 
 const PostDetailScreen = () => {
   const { userId } = useAppStore();
@@ -63,14 +64,14 @@ const PostDetailScreen = () => {
   useScreenTracking("PostDetailScreen/"+params?.id);
   const { setReportUserDetails, reportUserDetails } = useReportStore();
   const postDetailsResponse: any = useAppSelector((state) => state.postDetailData);
-  const postData = useMemo(() => postDetailsResponse?.newData?.id
-    ? postDetailsResponse?.newData
-    : {}, [postDetailsResponse?.newData]);
+  const postData: any = useMemo(() => postDetailsResponse?.newData?.id
+    ? postDetailsResponse?.newData: {}, [postDetailsResponse?.newData]);
 const userDetailsData = useSelector((state: any) => state.myProfileData, shallowEqual);
   const { id, Type }: any = useLocalSearchParams();
   const fetchCommentsResponse = useAppSelector(
     (state) => state.fetchCommentsData
   );
+
   const [modalVisible, setModalVisible] = React.useState(false);
   const [key, setKey] = React.useState(null);
   const { setID } = useIdStore();
@@ -145,7 +146,6 @@ const keyboardVisible = useKeyboardVisible();
       const updateMyPostData = Array.isArray(myPostListResponse.updatedData)
         ? myPostListResponse.updatedData.filter((item: any) => item?.id != postId)
         : [];
-        setPrefsValue("homePostData", JSON.stringify(updatedData || []));
       dispatch(setHomePostSlice(updatedData));
       dispatch(setMyUserFeedData(updateUserPostData));
       dispatch(setUserFeedData(updateMyPostData))
@@ -170,9 +170,9 @@ const keyboardVisible = useKeyboardVisible();
   }, [lastCount, id]);
 
   useEffect(()=>{
-    
     if(params?.id != postData?.id){
       getPostDetailsHandler({ postId: params?.id });
+      
     }
 
     const backHandler = BackHandler.addEventListener(
@@ -180,7 +180,6 @@ const keyboardVisible = useKeyboardVisible();
           () => {
             if(keyboardVisible){
               Keyboard.dismiss();
-              return true;
             }
             if(commentIndex != -1){
               onPressCommentRef.current.close();
@@ -244,14 +243,26 @@ const keyboardVisible = useKeyboardVisible();
     };
   }, []);
 
-  const getPostDetailsHandler = async ({ postId }) => {
+  const getPostDetailsHandler = useCallback(async({ postId }) => {
     dispatch(setPostDetailsLoading(true));
     if (userId == null) {
       var userData = await AsyncStorage.getItem("user-data");
       var userValue = JSON.parse(userData);
-      dispatch(onFetchPostDetail({ postId: postId, userId: userValue.userId }));
+      fetchPostDetailsHandler({ postId: postId, user_Id: userValue.userId });
     } else {
-      dispatch(onFetchPostDetail({ postId: postId, userId: userId }));
+      fetchPostDetailsHandler({ postId: postId, user_Id: userId });
+    }
+  },[params?.id]);
+
+  const fetchPostDetailsHandler = async ({ postId, user_Id }) => {
+    var postDetailsValue = await dispatch(onFetchPostDetail({ postId: postId, userId: user_Id }));
+    if(postDetailsValue?.payload?.success){
+      var postNewData = postDetailsValue?.payload?.data.file_type == "image" ? {...postDetailsValue?.payload?.data, display_height: (await Promise.all(calculateHeight(postDetailsValue?.payload?.data)))} : postDetailsValue?.payload?.data
+dispatch(upgradePostData(postNewData));
+      
+    }
+    else{
+      showToast({ type: "error", text1: postDetailsValue?.payload?.message });
     }
   };
   const toggleHideReplies = (commentId) => {
@@ -332,6 +343,7 @@ const keyboardVisible = useKeyboardVisible();
               source={file_type === "video" ?{thumbnail: video_snap_path || '', url: post_video} : imageArray}
               type={file_type}
               isHome={true}
+              display_height={postData?.display_height || []}
             />
           ) : file_type === "audio" ? (
             <Track_Player
@@ -348,11 +360,11 @@ const keyboardVisible = useKeyboardVisible();
     },
     [postData?.post_image]
   );
-
   const PostBottomComponent = useCallback(
-    ({ postId, likeCount, isLiked, category, categoryId, catclick }) => {
+    ({ postId, likeCount, isLiked, category, categoryId, catclick, commentsData }) => {
       const renderComment = ({ item: comment }) => {
         const hasReplies = comment.replies && comment.replies.length > 0;
+        const canDelete = userId === comment?.user?.id;
         return (
           <CommentRenderItem
             comment={comment}
@@ -362,6 +374,7 @@ const keyboardVisible = useKeyboardVisible();
             toggleHideReplies={toggleHideReplies}
             hasReplies={hasReplies}
             CommentId={comment.id}
+            userId={userId}
             replyPressHandler={() => {
               setCommentId(comment.id);
               onPressCommentRef.current.expand();
@@ -383,10 +396,10 @@ const keyboardVisible = useKeyboardVisible();
               setCommentId(comment.id);
               onPressConfirmHandler(1);
             }}
+            canDelete={canDelete}
           />
         );
       };
-
       return (
         <CommentSectionComponent
           isLiked={isLiked}
@@ -397,7 +410,7 @@ const keyboardVisible = useKeyboardVisible();
           onPressCommentHandler={onPressCommentHandler}
           onShare={onShare}
           postData={postData}
-          fetchCommentsResponse={fetchCommentsResponse}
+          fetchCommentsResponse={commentsData}
           updateLastCount={updateLastCount}
           renderComment={renderComment}
           categoryName={category}
@@ -409,7 +422,7 @@ const keyboardVisible = useKeyboardVisible();
     [
       postData?.likeByMe,
       postData?.comment_count,
-      fetchCommentsResponse?.data,
+      fetchCommentsResponse,
     ]
   );
 
@@ -506,12 +519,24 @@ const keyboardVisible = useKeyboardVisible();
 
         }
       };
+
+      const backPress = () => {
+        if (params.isNotification == undefined || params?.isNotification == "true") {
+          updateUserData();
+          router?.replace("/DashboardScreen");
+        } else if(router.canGoBack()) {
+          router.back();
+        }
+        else {
+          router?.replace("/DashboardScreen");
+        }
+      };
 const userImage = userDetailsData?.data?.id == postData?.post_by?.id ?  userDetailsData.data?.profile_pic : postData?.post_by?.profile_pic;
 const userName = userDetailsData?.data?.id == postData?.post_by?.id ? userDetailsData.data?.full_name : postData?.post_by?.full_name;
   const renderPostItem = useCallback(({ index, islocal }) => {
     if (index == 0) {
       return (
-        <View>
+        <View >
           <TopPostComponent
           profilePic={userImage}
           name={userName}
@@ -525,6 +550,7 @@ const userName = userDetailsData?.data?.id == postData?.post_by?.id ? userDetail
           groupName={postData?.loop_group?.loop_name || postData?.loop_id_conn?.loop_name}
           postId={postData?.id}
           handlePressProfile={()=>handlePressProfile(postData?.post_by?.id)}
+          backPress={()=>backPress()}
         />
           <PostMediaComponent islocal={islocal} />
         </View>
@@ -534,11 +560,10 @@ const userName = userDetailsData?.data?.id == postData?.post_by?.id ? userDetail
         <PostBottomComponent
           postId={postData?.id}
           likeCount={
-            (postData?.likes_aggregate?.aggregate?.count || 0) +
             (postData?.like_count || 0)
           }
           isLiked={
-            (postData?.like_byme || postData?.like_ByMe || postData?.likeByMe)
+            (postData?.likeByMe || [])
               ?.length > 0
               ? 1
               : 0
@@ -549,10 +574,11 @@ const userName = userDetailsData?.data?.id == postData?.post_by?.id ? userDetail
           }
           categoryId={postData?.loop_group?.category?.id}
           catclick={onPressCategoryHandler}
+          commentsData={fetchCommentsResponse}
         />
       );
     }
-  }, [postData]);
+  }, [postData, fetchCommentsResponse]);
 
   const onPressDeleteOption = () => {
     profileOptionRef.current.close();
@@ -567,23 +593,19 @@ const userName = userDetailsData?.data?.id == postData?.post_by?.id ? userDetail
   const onPressEditOption = () => {
     profileOptionRef.current.close();
     router.replace("/CreatePostScreen");
-    // router.push({
-    //   pathname: "/post/[id]",
-    //   params: { id: postData?.id },
-    // });
   };
-console.log("postData>>",);
+
   return (
     <ViewWrapper>
-      <GoBackNavigation
+      {/* <GoBackNavigation
         isDeepLink={params.isNotification}
         isHome={params.isNotification == "true"}
         containerStyle={{
           width: "100%",
           paddingHorizontal:5,
         }}
-      />
-      <View style={{ flex: 1, width: "100%", alignSelf: "center" }}>
+      /> */}
+      <View style={{ flex: 1, width: "98%", alignSelf: "center", paddingTop: 30, marginHorizontal: "1%" }}>
         {(params?.id != postData?.id && postDetailsResponse.isLoaded) ||
         postDetailsResponse.isLoaded ? (
           <PostLoaderComponent />
@@ -599,7 +621,7 @@ console.log("postData>>",);
             ListEmptyComponent={ListEmptyPostComponent}
           />
         ) : (
-          <ProfilePostComponent data={postData} />
+          <ProfilePostComponent data={postData} backPress={()=>backPress()} />
         )}
       </View>
 

@@ -180,8 +180,6 @@ const usePostCommentsHook = () => {
   };
 
   const updateCommentValues = ({newComment,commentsValue, parentId}) => {
-    // dispatch(UpdateData([newComment, ...fetchCommentsResponse?.data]));
-    // setCommentData((prevData) => [newComment, ...prevData]);
     if(parentId == 0){
       dispatch(UpdateData([commentsValue, ...fetchCommentsResponse?.data]));
       setCommentData((prevData) => [commentsValue, ...prevData]);

@@ -82,43 +82,60 @@ const CreateEventPostScreen = (data) => {
         };
   }, []);
 
-  useEffect(() => {
-    if (!submitPostResponse.Loader) {
-      if (submitPostResponse.success && submitPostResponse.message) {
-        showToast({ type: "success", text1: submitPostResponse.message });
-        Dispatch(clearEventData([]));
-        router.back();
-      } else if (submitPostResponse.error) {
-        showToast({
-          type: "error",
-          text1: submitPostResponse.message || "Something went wrong",
-        });
-
-        Dispatch(clearEventData([]));
-        router.back();
-      }
-    }
-  }, [submitPostResponse]);
   
 
-  const onSubmitEventPostHandler = () => {
+  const onSubmitEventPostHandler = async () => {
+    try{
     Dispatch(changeLoader(true));
-
-    Dispatch(
+  var eventData = await Dispatch(
       createEventPost({
         attachType: "image",
-        catId: "1",
         userId: userIdnew,
         desc: params?.post_content,
         file: params?.post_image,
-        group_id: params?.group_id,
         postType: 0,
-        eventName: params?.event_name,
-        imgHeight: params?.img_height
+        imgHeight: params?.img_height,
+        post_id: params?.post_id
       })
     );
+if(eventData.payload.success){
+  showToast({ type: "success", text1: eventData?.payload?.message });
+  Dispatch(clearEventData([]));
+  router.back();
+}
+else {
+  showToast({
+    type: "error",
+    text1: eventData?.payload?.message || "Something went wrong",
+  });
+
+  Dispatch(clearEventData([]));
+  router.back();
+}
+
+    // Dispatch(
+    //   createEventPost({
+    //     attachType: "image",
+    //     catId: "1",
+    //     userId: userIdnew,
+    //     desc: params?.post_content,
+    //     file: params?.post_image,
+    //     group_id: params?.group_id,
+    //     postType: 0,
+    //     eventName: params?.event_name,
+    //     imgHeight: params?.img_height
+    //   })
+    // );
+}
+catch(error){
+  showToast({
+    type: "error",
+    text1: error?.message || error?.response?.message || "Something went wrong",
+  });
+  console.log(error);
+}
   };
-console.log("params?.postData>>",params.post_id, JSON.stringify(params), data)
+
   return (
     <ViewWrapper>
       <GoBackNavigation header="Create Event post" isHome isDeepLink={"false"} />
@@ -181,7 +198,7 @@ console.log("params?.postData>>",params.post_id, JSON.stringify(params), data)
             }}
           />
 
-          <Text
+          {/* <Text
             style={{
               color: globalColors.neutralWhite,
               fontFamily: fontFamilies.regular,
@@ -215,7 +232,7 @@ console.log("params?.postData>>",params.post_id, JSON.stringify(params), data)
               {params?.group_name || "Event Feeds"}
             </Text>
             <ArrowUpIcon />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
       </ScrollView>
 

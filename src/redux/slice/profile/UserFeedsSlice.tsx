@@ -20,7 +20,7 @@ const myFeedsSlice = createSlice({
         state.isLoaded = false;
         state.called = true;
         state.data = action.payload?.data;
-        state.updatedData = action.payload?.last_count == 0 ? [...action.payload?.data] : [...state.updatedData,...action.payload?.data]
+        state.updatedData = action.payload?.last_count == 0 ? Array.isArray(action.payload?.data) ? action.payload?.data : [] : Array.isArray(action.payload?.data) ? [...state.updatedData,...action.payload?.data] : [...state.updatedData]
         state.success = action.payload?.success;
         state.error = false;
         state.error_message = "";

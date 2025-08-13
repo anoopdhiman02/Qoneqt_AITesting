@@ -70,15 +70,14 @@ export const onSubmitPanKyc = createAsyncThunk(
         Accept: "application/json",
         "Content-Type": "multipart/form-data",
       },
-      url: `${BASE_GO_URL}${ENDPOINTS.Submit_KYC_PAN}`,
+      url: `${BASE_GO_URL}${ENDPOINTS.KYC_PAN_UPLOAD}`,
       data: formData,
     };
-
     try {
       const response = await axiosInstance.request(options);
       return response.data;
     } catch (error) {
-      console.error("Error submit pan:", error);
+      console.error("Error submit pan:", JSON.stringify(error));
       return error;
     }
   }

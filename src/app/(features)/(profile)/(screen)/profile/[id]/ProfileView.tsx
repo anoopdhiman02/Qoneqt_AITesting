@@ -288,6 +288,7 @@ const UserProfileScreen = () => {
             }}
             isPlaying={currentPlaying === item.id}
             setCurrentPlaying={setCurrentPlaying}
+            currentUserID={profileDetailsData?.data?.id}
           />
         );
       } else {

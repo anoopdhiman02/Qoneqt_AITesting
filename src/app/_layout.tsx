@@ -30,6 +30,8 @@ import useCheckAppVersionHook from '@/customHooks/CheckAppVersionHook';
 import { fetchMyProfileDetails} from '@/redux/reducer/Profile/FetchProfileDetailsApi';
 import { onFetchMyUserFeeds } from '@/redux/reducer/Profile/FetchUserFeeds';
 import axiosInstance from '@/utils/axiosInstance';
+import { calculateHeight } from "@/utils/ImageHelper";
+import { setMyUserFeedData } from "@/redux/slice/profile/ProfileMyFeedsSlice";
 
 
 Sentry.init({
@@ -89,13 +91,31 @@ const AppInitializer = ({ children }) => {
         })(),
         (async () => {
           console.log('📡 Calling fetchMyProfileDetails...');
+          // @ts-ignore
           await dispatch(fetchMyProfileDetails({ profile: userId, userId }));
           console.log('✅ fetchMyProfileDetails completed');
         })(),
         (async () => {
           console.log('📡 Calling fetchMyUserFeeds...');
           if(userId){
-            await dispatch(onFetchMyUserFeeds({ userId, profileId: userId, lastCount: 0 }));
+            // @ts-ignore
+           var userFeedData: any = await dispatch(onFetchMyUserFeeds({ userId, profileId: userId, lastCount: 0 }));
+           if(userFeedData.payload.success){
+             var newData = await Promise.all(userFeedData?.payload?.data?.map(async (item) => {
+                              if(item?.file_type == "image"){
+                                return {
+                                  ...item,
+                                  display_height: (await Promise.all(calculateHeight(item)))
+                                };
+                              }
+                              return {
+                                ...item
+                              };
+                            }));
+            if(newData.length > 0){
+              dispatch(setMyUserFeedData(newData));
+            }
+          }
           }
           console.log('✅ fetchMyUserFeeds completed');
         })(),
@@ -106,17 +126,13 @@ const AppInitializer = ({ children }) => {
       if (failures.length > 0) {
         console.warn(`⚠️ ${failures.length} API calls failed:`, failures);
       }
-
-      const successes = results.filter(result => result.status === 'fulfilled');
-      
       initializationStatusRef.current.set(userId, 'completed');
-      
     } catch (error) {
       console.error(`❌ API initialization failed for user ${userId}:`, error);
       initializationStatusRef.current.delete(userId);
       throw error;
     }
-  }, [dispatch, checkAppVersion, onUpdateFcmHandler]);
+  }, [dispatch, checkAppVersion, onUpdateFcmHandler, userId]);
 
   useEffect(() => {
     if (!userId) {
@@ -274,7 +290,7 @@ const _layout = () => {
       case "personal_chat":
         router.push({
           pathname: "/UserChatScreen",
-          params: { id: profile_id || 2, from: 1, isNotification: "true" },
+          params: { id: profile_id || 2, from: 1, isNotification: "true"},
         });
         break;
       case "user_view":
@@ -353,6 +369,18 @@ const _layout = () => {
       case "accept_request":
         router.push({ pathname: "/groups", params: { groupId: loop_id } });
         break;
+      case "loop_join":
+        router.push({ pathname: "/groups", params: { groupId: loop_id } });
+        break;
+      case "remove_group_member":
+        router.push({ pathname: "/groups", params: { groupId: loop_id } });
+        break;
+      case "loop_request":
+        router.push({ pathname: "/groups", params: { groupId: loop_id } });
+        break;
+      case "join_request":
+        router.push({ pathname: "/groups", params: { groupId: loop_id } });
+        break;
       case "refer_user":
         router.push({
           pathname: "/refer-and-earn",
@@ -396,7 +424,6 @@ const _layout = () => {
     }
   };
 
- 
 
   return (
     <>

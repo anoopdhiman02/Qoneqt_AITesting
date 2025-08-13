@@ -53,8 +53,6 @@ const ProfileDetailsComponent = ({
   loading,
   toggleModal,
 }: DetailsProps) => {
-
-
   const StateText = ({ children, isLabel = false }) => (
     <Text
       style={{
@@ -164,132 +162,134 @@ const ProfileDetailsComponent = ({
   }
 
   return (
-    <View style={{paddingHorizontal: 20}}>
-      <View
-        style={{
-          alignSelf: "stretch",
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginTop: "3%",
-        }}
-      >
-        <View>
-          {/* Profile Picture (Small) */}
-          <TouchableOpacity onPress={toggleModal}>
-            <ImageFallBackUser
-              imageData={profilePic}
-              fullName={firstName}
-              widths={64}
-              heights={64}
-              borders={48}
+    <TouchableOpacity activeOpacity={1}>
+      <View style={{ paddingHorizontal: 20 }}>
+        <View
+          style={{
+            alignSelf: "stretch",
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginTop: "3%",
+          }}
+        >
+          <View>
+            {/* Profile Picture (Small) */}
+            <TouchableOpacity onPress={toggleModal}>
+              <ImageFallBackUser
+                imageData={profilePic}
+                fullName={firstName}
+                widths={64}
+                heights={64}
+                borders={48}
+              />
+            </TouchableOpacity>
+          </View>
+
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+            }}
+          >
+            <StatButton value={postCount} label="Posts" onPress={undefined} />
+            {/* <Lines /> */}
+            <StatButton
+              value={follower}
+              label="Followers"
+              onPress={() => onPressFollowers({ profileId: userId })}
+              marginLeft={22}
             />
-          </TouchableOpacity>  
+            {/* <Lines /> */}
+            <StatButton
+              value={following}
+              label="Following"
+              onPress={() => onPressFollowings({ profileId: userId })}
+              marginLeft={22}
+            />
+          </View>
         </View>
 
         <View
           style={{
             flexDirection: "row",
             alignItems: "center",
+            marginTop: "8%",
           }}
         >
-          <StatButton value={postCount} label="Posts" onPress={undefined} />
-          {/* <Lines /> */}
-          <StatButton
-            value={follower}
-            label="Followers"
-            onPress={() => onPressFollowers({ profileId: userId })}
-            marginLeft={22}
-          />
-          {/* <Lines /> */}
-          <StatButton
-            value={following}
-            label="Following"
-            onPress={() => onPressFollowings({ profileId: userId })}
-            marginLeft={22}
-          />
+          <Text
+            style={{
+              fontSize: 20,
+              letterSpacing: 0.2,
+              fontFamily: fontFamilies.bold,
+              color: globalColors.neutralWhite,
+              marginRight: 5,
+            }}
+          >
+            {firstName + " " + lastName}
+          </Text>
+          {isVerified == 1 ? <VerifiedIcon /> : null}
         </View>
-      </View>
 
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          marginTop: "8%",
-        }}
-      >
-        <Text
-          style={{
-            fontSize: 20,
-            letterSpacing: 0.2,
-            fontFamily: fontFamilies.bold,
-            color: globalColors.neutralWhite,
-            marginRight: 5,
-          }}
-        >
-          {firstName + " " + lastName}
-        </Text>
-        {isVerified == 1 ? <VerifiedIcon /> : null}
-      </View>
-
-      {socialName!="" && (
-        <Text
-          style={{
-            fontSize: 14,
-            lineHeight: 18,
-            fontFamily: fontFamilies.regular,
-            color: globalColors.neutralWhite,
-            marginTop: 8,
-          }}
-        >
-          {socialName}
-        </Text>
-      )}
-
-      {Headline !== "" && (
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            marginTop: 8,
-          }}
-        >
+        {socialName != "" && (
           <Text
             style={{
               fontSize: 14,
               lineHeight: 18,
               fontFamily: fontFamilies.regular,
               color: globalColors.neutralWhite,
-              textAlign: "left",
+              marginTop: 8,
             }}
           >
-            {Headline}
+            {socialName}
           </Text>
-        </View>
-      )}
+        )}
 
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          marginTop: 8,
-        }}
-      >
-        <ClockIcon />
-        <Text
+        {Headline !== "" && (
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginTop: 8,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 14,
+                lineHeight: 18,
+                fontFamily: fontFamilies.regular,
+                color: globalColors.neutralWhite,
+                textAlign: "left",
+              }}
+            >
+              {Headline}
+            </Text>
+          </View>
+        )}
+
+        <View
           style={{
-            fontSize: 12,
-            lineHeight: 18,
-            fontFamily: fontFamilies.regular,
-            color: globalColors.neutral7,
+            flexDirection: "row",
+            alignItems: "center",
+            marginTop: 8,
           }}
         >
-          {joinDate
-            ? moment(joinDate, "YYYY-MM-DD").format("DD MMM YYYY")
-            : "--"}
-        </Text>
+          <ClockIcon />
+          <Text
+            style={{
+              fontSize: 12,
+              lineHeight: 18,
+              fontFamily: fontFamilies.regular,
+              color: globalColors.neutral7,
+            }}
+          >
+            {joinDate
+              ? moment(joinDate, "YYYY-MM-DD").format("DD MMM YYYY")
+              : "--"}
+          </Text>
+        </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 

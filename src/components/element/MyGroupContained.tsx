@@ -225,6 +225,7 @@ const dispatch = useDispatch();
             isHome={false}
             isGroup={true}
             type={data?.file_type}
+            display_height={data?.display_height || []}
           />
         )}
 

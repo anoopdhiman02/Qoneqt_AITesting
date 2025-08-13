@@ -8,12 +8,14 @@ import { fontFamilies } from '@/assets/fonts'
 import MediaPost from '@/components/MediaPost'
 import Track_Player from '@/components/AudioPlayer/TrackPlayer';
 import { router } from 'expo-router'
+import BackIcon from "@expo/vector-icons/AntDesign";
 
 interface ProfilePostComponentProps {
     data?: any;
+    backPress?: () => void;
 }
     
-const ProfilePostComponent: React.FC<ProfilePostComponentProps> = ({data}) => {
+const ProfilePostComponent: React.FC<ProfilePostComponentProps> = ({data, backPress}) => {
   return (
     <View>
             <View style={{ flexDirection: "column", alignItems: "flex-start" }}>
@@ -25,6 +27,7 @@ const ProfilePostComponent: React.FC<ProfilePostComponentProps> = ({data}) => {
                   justifyContent: "space-between",
                 }}
               >
+                
                 <View
                   style={{
                     flexDirection: "row",
@@ -32,6 +35,18 @@ const ProfilePostComponent: React.FC<ProfilePostComponentProps> = ({data}) => {
                     justifyContent: "space-around",
                   }}
                 >
+                 <BackIcon
+          name="left"
+          size={24}
+          color={globalColors.neutralWhite}
+          onPress={backPress}
+          style={{
+            padding: 3,
+            justifyContent: "center",
+            alignItems: "center",
+            marginRight: 10
+          }}
+        />
                   <ImageFallBackUser
                     imageData={data.profilePic}
                     fullName={data.name || ''}
@@ -203,6 +218,7 @@ const ProfilePostComponent: React.FC<ProfilePostComponentProps> = ({data}) => {
                   }
                   type={data.postType}
                   isHome={true}
+                  display_height={data?.display_height || []}
                 />
               ) : data.postType === "audio" ? (
                 <Track_Player

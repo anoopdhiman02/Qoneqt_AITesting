@@ -3,62 +3,37 @@ import React, {
   memo,
   useCallback,
   useRef,
-  useState,
   useMemo,
   Component,
-  PureComponent,
 } from "react";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import {
-  ChannelsIcon,
-  ChatIcon,
-  CommentIcon,
-  LikeIcon,
   OptionsIcon,
-  Repost02Icon,
-  ShareIcon,
   VerifiedIcon,
 } from "@/assets/DarkIcon";
 import { globalColors } from "@/assets/GlobalColors";
 import { ImageFallBackUser, ImageUrlConcated } from "@/utils/ImageUrlConcat";
 import { fontFamilies } from "@/assets/fonts";
-import BottomSheetWrap from "../bottomSheet/BottomSheetWrap";
 import PostLikeComponent from "@/app/(features)/(viewPost)/component/PostLikeComponent";
 import moment from "moment";
-import { showToast } from "../atom/ToastMessageComponent";
 import { useAppStore } from "@/zustand/zustandStore";
 import MediaPost from "../MediaPost";
-import { useAppSelector } from "@/utils/Hooks";
-import { updateDiscoverData } from "@/redux/slice/home/DiscoverPostSlice";
-import { useDispatch } from "react-redux";
-import useHomeViewModel from "@/app/(features)/(home)/viewModel/HomeViewModel";
-import { useIdStore } from "@/customHooks/CommentUpdateStore";
-import Track_Player from "../AudioPlayer/TrackPlayer";
-import { onDeletePost } from "@/redux/reducer/post/DeletePost";
-import { useDeletePostId, useDeletePostModal } from "@/zustand/DeletePostModal";
 import { usePostDetailStore } from "@/zustand/PostDetailStore";
-import { useVideoPlayerStore } from "@/zustand/VideoPlayerStore";
-import {logEvent } from "@/customHooks/useAnalytics";
-import { Ionicons, Feather } from "@expo/vector-icons";
+import { useDeletePostId } from "@/zustand/DeletePostModal";
+import { logEvent } from "@/customHooks/useAnalytics";
+import { Ionicons } from "@expo/vector-icons";
+import RichText from "@/utils/RichText";
 
 interface PostContainerProps {
   data?: any;
   index: number;
   widthVal?: number;
   Type?: string;
-  onPressProfile?: () => void;
-  onPressGroup?: () => void;
-  onPressMore?: void;
-  onPressPost?: () => void;
-  onPressLike?: void;
   onPressComment?: (postId?: any, userId?: any) => any;
-  onPressShare?: () => void;
-  onPressGift?: () => void;
   onPressPostOption?: (data?: any) => any;
   isPlaying?: boolean;
   setCurrentPlaying?: (id: any) => void;
-  onDeletePostoption?: () => void;
   userInfo?: any;
   postPress?: () => void;
 }
@@ -85,7 +60,6 @@ const styles = StyleSheet.create({
     marginLeft: "2%",
   },
   categoryButton: {
-    // top: -10,
     borderRadius: 50,
     backgroundColor: globalColors.neutral2,
     borderStyle: "solid",
@@ -94,13 +68,10 @@ const styles = StyleSheet.create({
     padding: 5,
     justifyContent: "center",
     alignItems: "center",
-    // right: 14,
-    // alignSelf: "flex-end",
   },
   categoryText: {
     fontSize: 12,
     fontFamily: fontFamilies.semiBold,
-    // color: globalColors.neutral_white["200"],
     color: "#a78bfa",
   },
   nameContainer: {
@@ -176,10 +147,8 @@ const styles = StyleSheet.create({
     marginTop: 5,
     padding: 5,
   },
-
   actionsLeft: {
     alignSelf: "stretch",
-    // width: "100%",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-start",
@@ -194,7 +163,6 @@ const styles = StyleSheet.create({
   commentText: {
     fontSize: 17,
     fontFamily: fontFamilies.regular,
-    // color: globalColors.warmPink,
     color: "grey",
     marginLeft: 4,
     marginBottom: 4,
@@ -204,441 +172,393 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginLeft: 28,
   },
-  bottomSheetContainer: {
-    alignItems: "center",
-    marginTop: "10%",
-  },
-  bottomSheetTitle: {
-    color: globalColors.neutralWhite,
-    fontSize: 23,
-    textAlign: "center",
-    marginBottom: "3%",
-  },
-  shareOptionContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    width: "100%",
-  },
-  shareOptionTitle: {
-    color: globalColors.neutralWhite,
-    fontSize: 18,
-    marginTop: "1%",
-  },
-  shareOptionSubtitle: {
-    marginTop: "2.5%",
-    color: "gray",
-    fontSize: 12,
-  },
-  shareMessageTitle: {
-    color: globalColors.neutralWhite,
-    fontSize: 18,
-    marginTop: "7%",
-  },
 });
 
 // Memoized components for better performance
 const MemoizedImageFallBackUser = memo(ImageFallBackUser);
 const MemoizedVerifiedIcon = memo(VerifiedIcon);
 const MemoizedOptionsIcon = memo(OptionsIcon);
-const MemoizedCommentIcon = memo(CommentIcon);
-const MemoizedShareIcon = memo(ShareIcon);
-const MemoizedMediaPost = memo(MediaPost);
-const MemoizedTrackPlayer = memo(Track_Player);
-const MemoizedPostLikeComponent = memo(PostLikeComponent);
 
-interface PostHeaderProps {
-  data?: any;
-  userId?: string;
-  onPressProfile?: (userId?: any) => void;
-  onPressGroup?: (groupId?: any) => void;
-  onShare?: (postId?: any) => void;
-  onPressPostOption?: (data?: any) => void;
-  setPostId?: (postId?: any) => void;
-  setPostedByUserId?: (postedByUserId?: any) => void;
-  setDeleteUserId?: (deleteUserId?: any) => void;
-  userInfo?: any;
-}
+// Separate PostHeader component for better optimization
+const PostHeader = memo(({ 
+  data, 
+  userId, 
+  onPressPostOption,
+  onShare,
+  userInfo 
+}: {
+  data: any;
+  userId: string;
+  onPressPostOption: (data: any) => void;
+  onShare: (data: any) => void;
+  userInfo: any;
+}) => {
+  const { setPostId, setPostedByUserId } = usePostDetailStore();
+  const { setDeleteUserId } = useDeletePostId();
 
-// High-performance PostHeader component
-const PostHeader = memo(
-  ({
-    data,
-    userId,
-    onPressProfile,
-    onPressGroup,
-    onPressPostOption,
-    setPostId,
-    setPostedByUserId,
-    setDeleteUserId,
-    onShare,
-    userInfo,
-  }: PostHeaderProps) => {
-    const handleProfilePress = useCallback(() => {
-      logEvent("post_profile", {
-        profile_id: data?.post_by?.id,
-      });
-      if (data?.post_by?.id === userId) {
-        router.push({
-          pathname: "/ProfileScreen",
-          params: { profileId: data?.post_by?.id },
-        });
-      } else {
-        router.push({
-          pathname: "/profile/[id]",
-          params: {
-            id: data?.post_by?.id,
-            isProfile: "true",
-            isNotification: "false",
-          },
-        });
-      }
-    }, [data?.post_by?.id, userId]);
-
-    const handleGroupPress = useCallback(() => {
-      logEvent("post_group", {
-        group_id: data?.loop_id_conn?.id || data?.loop_group?.id,
-      });
+  const handleProfilePress = useCallback(() => {
+    logEvent("post_profile", {
+      profile_id: data?.post_by?.id,
+    });
+    
+    if (data?.post_by?.id === userId) {
       router.push({
-        pathname: "/groups",
+        pathname: "/ProfileScreen",
+        params: { profileId: data?.post_by?.id },
+      });
+    } else {
+      router.push({
+        pathname: "/profile/[id]",
         params: {
-          groupId: data?.loop_id_conn?.id || data?.loop_group?.id,
+          id: data?.post_by?.id,
+          isProfile: "true",
+          isNotification: "false",
         },
       });
-    }, [data?.loop_id_conn?.id, data?.loop_group?.id]);
+    }
+  }, [data?.post_by?.id, userId]);
 
-    const handleOptionsPress = useCallback(() => {
-      onPressPostOption({
-        userData: data?.postBy || data?.post_by,
-        groupData: data?.loop_group,
-      });
-      setPostId(data?.id);
-      setPostedByUserId(data?.post_by?.id);
-      setDeleteUserId(data?.post_by?.id);
-    }, [
-      data,
-      onPressPostOption,
-      setPostId,
-      setPostedByUserId,
-      setDeleteUserId,
-    ]);
+  const handleGroupPress = useCallback(() => {
+    logEvent("post_group", {
+      group_id: data?.loop_id_conn?.id || data?.loop_group?.id,
+    });
+    router.push({
+      pathname: "/groups",
+      params: {
+        groupId: data?.loop_id_conn?.id || data?.loop_group?.id,
+      },
+    });
+  }, [data?.loop_id_conn?.id, data?.loop_group?.id]);
 
-    const handleSharePress = useCallback(() => {
-      onShare({ id: data?.id });
-    }, [data?.id, onShare]);
+  const handleOptionsPress = useCallback(() => {
+    onPressPostOption(data);
+    setPostId(data?.id);
+    setPostedByUserId(data?.post_by?.id);
+    setDeleteUserId(data?.post_by?.id);
+  }, [data, onPressPostOption, setPostId, setPostedByUserId, setDeleteUserId]);
 
-    const timeAgo = useMemo(() => {
-      return moment.utc(data?.time).utcOffset("+05:30").fromNow();
-    }, [data?.time]);
+  const handleSharePress = useCallback(() => {
+    onShare({ id: data?.id });
+  }, [data?.id, onShare]);
 
-    const groupName = useMemo(() => {
-      return data?.loop_id_conn?.loop_name || data?.loop_group?.loop_name;
-    }, [data?.loop_id_conn?.loop_name, data?.loop_group?.loop_name]);
+  // Memoize computed values
+  const timeAgo = useMemo(() => {
+    return moment.utc(data?.time).utcOffset("+05:30").fromNow();
+  }, [data?.time]);
 
+  const groupName = useMemo(() => {
+    return data?.loop_id_conn?.loop_name || data?.loop_group?.loop_name;
+  }, [data?.loop_id_conn?.loop_name, data?.loop_group?.loop_name]);
 
-    const userImage = data?.post_by?.id === userInfo?.id ? userInfo?.profile_pic : data?.post_by?.profile_pic;
-    const userName = data?.post_by?.id === userInfo?.id ? userInfo?.full_name : data?.post_by?.full_name;
-    return (
-      <View style={{ width: "100%", paddingHorizontal: "2.5%" }}>
-        <View style={styles.headerContainer}>
+  const userImage = useMemo(() => {
+    return data?.post_by?.id === userInfo?.id ? userInfo?.profile_pic : data?.post_by?.profile_pic;
+  }, [data?.post_by?.id, data?.post_by?.profile_pic, userInfo?.id, userInfo?.profile_pic]);
+
+  const userName = useMemo(() => {
+    return data?.post_by?.id === userInfo?.id ? userInfo?.full_name : data?.post_by?.full_name;
+  }, [data?.post_by?.id, data?.post_by?.full_name, userInfo?.id, userInfo?.full_name]);
+
+  return (
+    <View style={{ width: "100%", paddingHorizontal: "2.5%" }}>
+      <View style={styles.headerContainer}>
+        <TouchableOpacity
+          onPress={handleProfilePress}
+          style={styles.profileContainer}
+        >
+          <MemoizedImageFallBackUser
+            imageData={userImage}
+            fullName={userName}
+            widths={40}
+            heights={40}
+            borders={40}
+          />
+        </TouchableOpacity>
+
+        <View style={styles.contentContainer}>
           <TouchableOpacity
             onPress={handleProfilePress}
-            style={styles.profileContainer}
+            style={styles.nameContainer}
           >
-            <MemoizedImageFallBackUser
-              imageData={userImage}
-              fullName={userName}
-              widths={40}
-              heights={40}
-              borders={40}
-            />
-          </TouchableOpacity>
-
-          <View style={styles.contentContainer}>
-            <TouchableOpacity
-              onPress={handleProfilePress}
-              style={styles.nameContainer}
-            >
-              <Text style={styles.nameText}>{userName}</Text>
-              {data?.post_by?.kyc_status === 1 && (
-                <MemoizedVerifiedIcon style={styles.verifiedIcon} />
-              )}
-            </TouchableOpacity>
-
-            <View style={styles.metaContainer}>
-              <Text style={styles.timeText}>{timeAgo}</Text>
-              <View style={styles.dot} />
-              <TouchableOpacity onPress={handleGroupPress}>
-                <Text style={styles.groupText}>{groupName}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-          <TouchableOpacity
-            onPress={handleSharePress}
-            style={styles.shareButton}
-          >
-            <Ionicons name="share-outline" size={22} color={"grey"} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={handleOptionsPress}
-            style={styles.optionsContainer}
-          >
-            <MemoizedOptionsIcon width={24} height={24} />
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  },
-  (prevProps, nextProps) => {
-    // Custom comparison for optimal re-rendering
-    return (
-      prevProps.data?.id === nextProps.data?.id &&
-      prevProps.data?.post_by?.id === nextProps.data?.post_by?.id &&
-      prevProps.data?.post_by?.full_name ===
-        nextProps.data?.post_by?.full_name &&
-      prevProps.data?.post_by?.profile_pic ===
-        nextProps.data?.post_by?.profile_pic &&
-      prevProps.data?.post_by?.kyc_status ===
-        nextProps.data?.post_by?.kyc_status &&
-      prevProps.data?.time === nextProps.data?.time &&
-      prevProps.userId === nextProps.userId &&
-      prevProps?.userInfo === nextProps?.userInfo
-    );
-  }
-);
-
-// Optimized PostContent component
-const PostContent = memo(
-  ({ data, onPress }: any) => {
-    const [isExpanded, setIsExpanded] = useState(false);
-
-    const toggleExpand = useCallback(() => {
-      setIsExpanded(!isExpanded);
-    }, [isExpanded]);
-
-    const shouldShowReadMore = useMemo(() => {
-      return data?.post_content?.length > 90 && !isExpanded;
-    }, [data?.post_content?.length, isExpanded]);
-
-    const numberOfLines = useMemo(() => {
-      if (isExpanded) return undefined;
-      return data?.post_content?.length < 91 ? 3 : 2;
-    }, [isExpanded, data?.post_content?.length]);
-
-    return (
-      <TouchableOpacity
-        onPress={shouldShowReadMore ? toggleExpand : onPress}
-        style={styles.postContentContainer}
-        disabled={!shouldShowReadMore && !onPress}
-      >
-        <Text style={styles.postText} numberOfLines={numberOfLines}>
-          {data?.post_content}
-        </Text>
-        {shouldShowReadMore && (
-          <Text style={styles.readMoreText}>Read more...</Text>
-        )}
-      </TouchableOpacity>
-    );
-  },
-  (prevProps: any, nextProps: any) => {
-    return (
-      prevProps.data?.post_content === nextProps.data?.post_content &&
-      prevProps.onPress === nextProps.onPress
-    );
-  }
-);
-
-
-// Optimized PostActions component
-const PostActions = memo(
-  ({ data, onPressComment, onShare }: any) => {
-    const handleCommentPress = useCallback(() => {
-      onPressComment(data?.id, data?.post_by?.id);
-    }, [data?.id, data?.post_by?.id, onPressComment]);
-
-    const handleSharePress = useCallback(() => {
-      onShare({ id: data?.id });
-    }, [data?.id, onShare]);
-
-    const commentCount = useMemo(() => {
-      return (
-        data?.post_comments_aggregate?.aggregate?.count ||
-        data?.comment_count ||
-        0
-      );
-    }, [data?.post_comments_aggregate?.aggregate?.count, data?.comment_count]);
-
-    const likeCount = useMemo(() => {
-      return data?.like_count + (data?.likes_aggregate?.aggregate?.count || 0);
-    }, [data?.like_count]);
-
-    const isLiked = useMemo(() => {
-      return (data?.like_byMe || data?.likeByMe)?.length > 0 ? 1 : 0;
-    }, [data?.like_byMe, data?.likeByMe]);
-    const categoryName = data?.loop_id_conn?.category?.category_name || data?.loop_group?.category?.category_name || "";
-    const categoryId = data?.loop_id_conn?.category?.id || data?.loop_group?.category?.id;
-     const handlePressCategory = useCallback(() => {
-        if (categoryId) {
-          logEvent("post_category", {
-            category_id: categoryId,
-          });
-          router.push({
-            pathname: "/CategoriesPost",
-            params: { categoryId: categoryId },
-          });
-        }
-      }, [categoryId]);
-    return (
-      <View style={styles.actionsContainer}>
-        <View style={styles.actionsLeft}>
-          <MemoizedPostLikeComponent
-            Liked={isLiked}
-            count={likeCount}
-            postId={data?.id}
-            updateLikeStatus={() => {}} // Implement if needed
-          />
-
-          <TouchableOpacity
-            onPress={handleCommentPress}
-            style={styles.commentButton}
-          >
-            {/* <MemoizedCommentIcon height={24} width={24} /> */}
-            <Ionicons name="chatbubble-outline" size={23} color="grey" />
-            {commentCount != "0" && (
-              <Text style={styles.commentText}>{commentCount}</Text>
+            <Text style={styles.nameText}>{userName}</Text>
+            {data?.post_by?.kyc_status === 1 && (
+              <MemoizedVerifiedIcon style={styles.verifiedIcon} />
             )}
           </TouchableOpacity>
 
-          {/* <TouchableOpacity
-            onPress={handleSharePress}
-            style={styles.shareButton}
-          >
-            <MemoizedShareIcon height={24} width={24} />
-          </TouchableOpacity> */}
+          <View style={styles.metaContainer}>
+            <Text style={styles.timeText}>{timeAgo}</Text>
+            <View style={styles.dot} />
+            <TouchableOpacity onPress={handleGroupPress}>
+              <Text style={styles.groupText}>{groupName}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-        {categoryName ? (
-          <TouchableOpacity
-            onPress={() => {
-              handlePressCategory();
-            }}
-            style={{
-              ...styles.categoryButton,
-              width: categoryName.length + 85,
-            }}
-          >
-            <Text numberOfLines={1} style={styles.categoryText}>
-              {categoryName}
-            </Text>
-          </TouchableOpacity>
-        ) : null}
+
+        <TouchableOpacity
+          onPress={handleSharePress}
+          style={styles.shareButton}
+        >
+          <Ionicons name="share-outline" size={22} color={"grey"} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={handleOptionsPress}
+          style={styles.optionsContainer}
+        >
+          <MemoizedOptionsIcon width={24} height={24} />
+        </TouchableOpacity>
       </View>
-    );
-  },
-  (prevProps: any, nextProps: any) => {
+    </View>
+  );
+});
+
+// Separate PostContent component
+const PostContent = memo(({ 
+  data, 
+  onPress 
+}: { 
+  data: any; 
+  onPress?: () => void; 
+}) => {
+  const [isExpanded, setIsExpanded] = React.useState(false);
+
+  const toggleExpand = useCallback(() => {
+    setIsExpanded(prev => !prev);
+  }, []);
+
+  const shouldShowReadMore = useMemo(() => {
+    return data?.post_content?.length > 90 && !isExpanded;
+  }, [data?.post_content?.length, isExpanded]);
+
+  const numberOfLines = useMemo(() => {
+    if (isExpanded) return undefined;
+    return data?.post_content?.length < 91 ? 3 : 2;
+  }, [isExpanded, data?.post_content?.length]);
+
+  return (
+    <TouchableOpacity
+      onPress={shouldShowReadMore ? toggleExpand : onPress}
+      style={styles.postContentContainer}
+      disabled={!shouldShowReadMore && !onPress}
+    >
+      <Text style={styles.postText} numberOfLines={numberOfLines}>
+        {/* {data?.post_content} */}
+        {data?.post_content != "" && data?.post_content != null && (
+          <RichText text={data?.post_content} mentions={[]} />
+        )}
+      </Text>
+      {shouldShowReadMore && (
+        <Text style={styles.readMoreText}>Read more...</Text>
+      )}
+    </TouchableOpacity>
+  );
+});
+
+// Separate PostActions component
+const PostActions = memo(({ 
+  data, 
+  onPressComment 
+}: { 
+  data: any; 
+  onPressComment: (postId: any, userId: any) => void; 
+}) => {
+  const handleCommentPress = useCallback(() => {
+    onPressComment(data?.id, data?.post_by?.id);
+  }, [data?.id, data?.post_by?.id, onPressComment]);
+
+  const commentCount = useMemo(() => {
     return (
-      prevProps.data?.id === nextProps.data?.id &&
-      prevProps.data?.like_count === nextProps.data?.like_count &&
-      prevProps.data?.comment_count === nextProps.data?.comment_count &&
-      prevProps.data?.like_byMe === nextProps.data?.like_byMe &&
-      prevProps.data?.likeByMe === nextProps.data?.likeByMe &&
-      prevProps.onPressComment === nextProps.onPressComment
+      data?.post_comments_aggregate?.aggregate?.count ||
+      data?.comment_count ||
+      0
     );
+  }, [data?.post_comments_aggregate?.aggregate?.count, data?.comment_count]);
+
+  const categoryName = useMemo(() => {
+    return data?.loop_id_conn?.category?.category_name || data?.loop_group?.category?.category_name || "";
+  }, [data?.loop_id_conn?.category?.category_name, data?.loop_group?.category?.category_name]);
+
+  const categoryId = useMemo(() => {
+    return data?.loop_id_conn?.category?.id || data?.loop_group?.category?.id;
+  }, [data?.loop_id_conn?.category?.id, data?.loop_group?.category?.id]);
+
+  const handlePressCategory = useCallback(() => {
+    if (categoryId) {
+      logEvent("post_category", {
+        category_id: categoryId,
+      });
+      router.push({
+        pathname: "/CategoriesPost",
+        params: { categoryId: categoryId },
+      });
+    }
+  }, [categoryId]);
+
+  return (
+    <View style={styles.actionsContainer}>
+      <View style={styles.actionsLeft}>
+        <PostLikeComponent
+          Liked={(data?.likeByMe || [])?.length > 0 ? 1 : 0}
+          count={data?.like_count || 0}
+          postId={data?.id}
+          updateLikeStatus={() => {}}
+        />
+
+        <TouchableOpacity
+          onPress={handleCommentPress}
+          style={styles.commentButton}
+        >
+          <Ionicons name="chatbubble-outline" size={23} color="grey" />
+          {commentCount !== 0 && (
+            <Text style={styles.commentText}>{commentCount}</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {categoryName ? (
+        <TouchableOpacity
+          onPress={handlePressCategory}
+          style={[
+            styles.categoryButton,
+            { width: categoryName.length + 85 }
+          ]}
+        >
+          <Text numberOfLines={1} style={styles.categoryText}>
+            {categoryName}
+          </Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+});
+
+// Separate PostMedia component
+const PostMedia = memo(({ 
+  data, 
+  isPlaying, 
+  setCurrentPlaying 
+}: { 
+  data: any; 
+  isPlaying?: boolean; 
+  setCurrentPlaying?: (id: any) => void; 
+}) => {
+  if (!data?.file_type) return null;
+  switch (data.file_type) {
+    case "video":
+      return (
+        <MediaPost
+          source={{
+            thumbnail: data?.video_snap_path,
+            url: data?.post_video,
+          }}
+          type={data?.file_type}
+          isHome={true}
+          isGroup={false}
+          onPressView={() => {}}
+          display_height={data?.display_height || []}
+        />
+      );
+    
+    case "image":
+      return (
+        <MediaPost
+          source={data?.post_image ? data?.post_image.split(",") : []}
+          type={data?.file_type}
+          isHome={true}
+          isGroup={false}
+          img_height={[]}
+          blurhash={data?.blurhash || []}
+          display_height={data?.display_height || []}
+        />
+      );
+    
+    case "audio":
+      const Track_Player = React.lazy(() => import("../AudioPlayer/TrackPlayer"));
+      return (
+        <React.Suspense fallback={<View style={{ height: 60 }} />}>
+          <Track_Player
+            Type={data.post_audio}
+            id={data?.id}
+            isPlaying={isPlaying}
+            setCurrentPlaying={setCurrentPlaying}
+          />
+        </React.Suspense>
+      );
+    
+    default:
+      return null;
   }
-);
+});
 
-// Main component using PureComponent for maximum performance
-class HomePostContainer extends PureComponent<PostContainerProps> {
+// Main optimized component
+const HomePostContainer = memo(({ 
+  data,
+  index,
+  Type,
+  onPressComment,
+  onPressPostOption,
+  isPlaying,
+  setCurrentPlaying,
+  userInfo,
+  postPress,
+}: PostContainerProps) => {
+  const { userId } = useAppStore();
 
-  private onShare = async ({ id }: { id: string }) => {
+  const onShare = useCallback(async ({ id }: { id: string }) => {
     try {
       logEvent("post_share", {
         post_id: id,
-        type: this.props.Type,
+        type: Type,
       });
-      const result = await Share.share({
+      await Share.share({
         message: `https://qoneqt.com/post/${id}`,
         title: "Share Post",
       });
     } catch (error) {
-      console.error(error.message);
+      console.error(error?.message);
     }
-  };
+  }, [Type]);
 
-  render() {
-    const {
-      data,
-      onPressComment,
-      onPressPostOption,
-      isPlaying,
-      setCurrentPlaying,
-      userInfo,
-      postPress,
-    } = this.props;
+  if (!data) return null;
 
-    const { userId } = useAppStore.getState();
-    const { setPostId, setPostedByUserId } = usePostDetailStore.getState();
-    const { setDeleteUserId } = useDeletePostId.getState();
-    return (
-      <TouchableOpacity
-        activeOpacity={1}
-        style={styles.container}
-        onPress={postPress}
-      >
-        <PostHeader
-          data={data}
-          userId={userId}
-          onPressPostOption={onPressPostOption}
-          setPostId={setPostId}
-          setPostedByUserId={setPostedByUserId}
-          setDeleteUserId={setDeleteUserId}
-          onShare={this.onShare}
-          userInfo={userInfo}
-        />
+  return (
+    <TouchableOpacity
+      activeOpacity={1}
+      style={styles.container}
+      onPress={postPress}
+    >
+      <PostHeader
+        data={data}
+        userId={userId}
+        onPressPostOption={onPressPostOption}
+        onShare={onShare}
+        userInfo={userInfo}
+      />
 
-        <PostContent data={data} onPress={postPress} />
+      <PostContent data={data} onPress={postPress} />
 
-        <View style={{ flex: 1 }}>
-          {data?.file_type === "video" && (
-            <MediaPost
-              source={{
-                thumbnail: data?.video_snap_path,
-                url: data?.post_video,
-              }}
-              type={data?.file_type}
-              isHome={true}
-              isGroup={false}
-              onPressView={() => {
-              }}
-            />
-          )}
-          {data?.file_type === "image" && (
-            <MediaPost
-              source={data?.post_image ? data?.post_image.split(",") : []}
-              type={data?.file_type}
-              isHome={true}
-              isGroup={false}
-              img_height={[]}
-              blurhash={data?.blurhash || []}
-            />
-          )}
-          {data?.file_type === "audio" && (
-            <Track_Player
-              Type={data.post_audio}
-              id={data?.id}
-              isPlaying={isPlaying}
-              setCurrentPlaying={setCurrentPlaying}
-            />
-          )}
-        </View>
+      <PostMedia 
+        data={data}
+        isPlaying={isPlaying}
+        setCurrentPlaying={setCurrentPlaying}
+      />
 
-        <PostActions
-          data={data}
-          onPressComment={onPressComment}
-          onShare={this.onShare}
-        />
-      </TouchableOpacity>
-    );
-  }
-}
+      <PostActions
+        data={data}
+        onPressComment={onPressComment}
+      />
+    </TouchableOpacity>
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparison for optimal re-rendering
+  return (
+    prevProps.data?.id === nextProps.data?.id &&
+    prevProps.data?.like_count === nextProps.data?.like_count &&
+    prevProps.data?.comment_count === nextProps.data?.comment_count &&
+    prevProps.isPlaying === nextProps.isPlaying &&
+    prevProps.userInfo?.id === nextProps.userInfo?.id &&
+    prevProps.userInfo?.profile_pic === nextProps.userInfo?.profile_pic
+  );
+});
 
 export default HomePostContainer;

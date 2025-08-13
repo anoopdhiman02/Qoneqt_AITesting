@@ -61,6 +61,7 @@ const useKycOnboardViewModel = () => {
       );
     }
     else {
+      console.log("panCardFile>>>", JSON.stringify(panCardFile));
       backToPreviousScreen();
       showToast({
         type: "error",

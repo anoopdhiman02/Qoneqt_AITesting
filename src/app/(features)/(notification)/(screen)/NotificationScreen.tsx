@@ -285,7 +285,17 @@ const NotificationScreen = () => {
           },
         });
         break;
-
+case "remove_group_member":
+      case "join_request":
+      case "accept_request":
+        router.push({
+          pathname: "/groups/[slug]",
+          params: {
+            slug:
+              remoteMessage?.loop_id || remoteMessage?.redirect_id || "india",
+          },
+        });
+        break;
       case "kyc_verify_redirect":
         router.push({
           pathname: "/KycLoadingScreen",

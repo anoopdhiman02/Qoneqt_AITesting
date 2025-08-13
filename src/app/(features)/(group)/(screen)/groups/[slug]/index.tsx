@@ -133,7 +133,7 @@ const groups = () => {
     setImageFileData,
     setSelectedVideo,
     selectedvideo,
-  } = useCreatePostViewModel();
+  }: any = useCreatePostViewModel();
   const submitPostResponse = useSelector((state: any) => state?.createPostData,shallowEqual);
   const keyboardVisible = useKeyboardVisible();
   useEffect(() => {
@@ -925,6 +925,7 @@ const groups = () => {
               }
               isPlaying={currentPlaying === postData.id}
               setCurrentPlaying={setCurrentPlaying}
+              currentUserID={'00000'}
             />
           ))
         ) : (
@@ -1082,6 +1083,7 @@ const groups = () => {
                 type={"video"}
                 isHome={true}
                 isGroup={false}
+                display_height={[]}
               />
             </View>
           )}

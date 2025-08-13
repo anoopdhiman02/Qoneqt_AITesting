@@ -11,15 +11,22 @@ const CategoryPostSlice = createSlice({
     error: false,
     error_message: "",
     message: "",
+    updatedData: [],
   },
   reducers: {
+    updateCategoryPostData: (state, action) => {
+      state.updatedData = action?.payload;
+    },
+    categoryLoading: (state, action) => {
+      state.isLoaded = action?.payload;
+    },
   },
   extraReducers: (builder) => {
     builder
       .addCase(onFetchCategoryPost.fulfilled, (state, action) => {
         state.data = action?.payload?.data;
         state.success = action?.payload?.success;
-        state.isLoaded = true;
+        state.isLoaded = false;
         state.error = false;
         state.error_message = "";
         state.message = action?.payload?.message;
@@ -34,5 +41,5 @@ const CategoryPostSlice = createSlice({
       });
   },
 });
-
+export const { updateCategoryPostData, categoryLoading } = CategoryPostSlice.actions;
 export default CategoryPostSlice.reducer;

@@ -102,10 +102,17 @@ const useUserProfileViewModel = () => {
   }, [profileDetailResponse]);
 
   //Other Option
-  const onPressMessage = (profileId) => {
+  const onPressMessage = (profile) => {
     router.push({
       pathname: "/UserChatScreen",
-      params: { id: profileId, from: 1, isNotification: "false" },
+      params: {
+        id: profile?.id,
+        from: 1,
+        isNotification: "false",
+        name: profile?.full_name,
+        logo: profile?.profile_pic,
+        kyc: profile?.kyc_status || 0,
+      },
     });
   };
 

@@ -9,7 +9,6 @@ import { fontFamilies } from "@/assets/fonts";
 import moment from "moment";
 import MediaPost from "../MediaPost";
 
-
 const SearchHashtagItemComponent = ({ item, onPressPost }) => {
   const { hashtag, postsCount, trending, description } = item;
   const {
@@ -28,13 +27,11 @@ const SearchHashtagItemComponent = ({ item, onPressPost }) => {
 
   return (
     <TouchableOpacity
-      onPress={() =>
-        onPressPost()
-      }
+      onPress={() => onPressPost()}
       key={item.id}
       style={{
         borderRadius: 16,
-        borderWidth: 1,
+        // borderWidth: 1,
         width: "100%",
         flexDirection: "row",
         paddingVertical: "4%",
@@ -42,7 +39,13 @@ const SearchHashtagItemComponent = ({ item, onPressPost }) => {
         overflow: "hidden",
       }}
     >
-      <View style={{ flexDirection: "column", width: "100%" }}>
+      <View
+        style={{
+          flexDirection: "column",
+          width: "96%",
+          marginHorizontal: "2%",
+        }}
+      >
         <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             <ImageFallBackUser
@@ -121,21 +124,18 @@ const SearchHashtagItemComponent = ({ item, onPressPost }) => {
           >
             {post_content}
           </Text>
-          <MediaPost source={post_image ? post_image.split(",") : post_video ? {thumbnail: video_snap_path, url: post_video} : []} type={file_type} isHome={true} />
-          {/* <Image
-            style={{
-              borderRadius: 8,
-              width: "100%",
-              height: 200,
-              marginTop: 12,
-            }}
-            contentFit="cover"
-            source={{
-              uri: post_image
-                ? ImageUrlConcated(post_image)
-                : require("./../../assets/image/emptyPost.jpg"),
-            }}
-          /> */}
+          <MediaPost
+            source={
+              post_image
+                ? post_image.split(",")
+                : post_video
+                ? { thumbnail: video_snap_path, url: post_video }
+                : []
+            }
+            type={file_type}
+            isHome={true}
+            display_height={[]}
+          />
         </View>
       </View>
     </TouchableOpacity>

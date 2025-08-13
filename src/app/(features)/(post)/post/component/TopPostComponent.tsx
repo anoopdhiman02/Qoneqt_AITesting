@@ -6,6 +6,8 @@ import { globalColors } from '@/assets/GlobalColors';
 import moment from 'moment';
 import { OptionsIcon } from '@/assets/DarkIcon';
 import { fontFamilies } from '@/assets/fonts';
+import BackIcon from "@expo/vector-icons/AntDesign";
+import RichText from '@/utils/RichText';
 
 
 interface TopPostComponentProps {
@@ -21,6 +23,7 @@ interface TopPostComponentProps {
     groupName: string;
     postId: string;
     handlePressProfile: () => void;
+    backPress: () => void;
 }
 
 const TopPostComponent = ({
@@ -35,116 +38,133 @@ const TopPostComponent = ({
     description,
     groupName,
     postId,
-    handlePressProfile
+    handlePressProfile,
+    backPress
 }: TopPostComponentProps) => {
 
   
 
   return (
-    <View style={{ flexDirection: "column", alignItems: "flex-start", width: "96%", marginHorizontal: "2%" }}>
-          <View
+    <View
+      style={{
+        flexDirection: "column",
+        alignItems: "flex-start",
+        width: "96%",
+        marginHorizontal: "2%",
+      }}
+    >
+      <View
+        style={{
+          width: "100%",
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+          }}
+        >
+          <BackIcon
+            name="left"
+            size={24}
+            color={globalColors.neutralWhite}
+            onPress={backPress}
             style={{
-              width: "100%",
-              flexDirection: "row",
+              padding: 3,
+              justifyContent: "center",
               alignItems: "center",
-              justifyContent: "space-between",
+              marginRight: 10,
             }}
-          >
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "flex-start",
-                justifyContent: "space-around",
-              }}
-            >
-              <ImageFallBackUser
-                imageData={profilePic}
-                fullName={name}
-                widths={32}
-                heights={32}
-                borders={16}
-              />
-              <View
-                style={{
-                  flexDirection: "column",
-                  alignItems: "flex-start",
-                }}
-              >
-                <TouchableOpacity
-                  onPress={() => handlePressProfile()}
-                >
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      lineHeight: 16,
-                      fontFamily: "MediumFont",
-                      color: globalColors.neutral_white["200"],
-                      left: "7%",
-                    }}
-                  >
-                    {name}
-                  </Text>
-                </TouchableOpacity>
-
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    width: "100%",
-                    left: "25%",
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 10,
-                      fontFamily: "RegularFont",
-                      color: globalColors.neutral_white["300"],
-                    }}
-                  >
-                    {moment.utc(postTime).utcOffset("+05:30").fromNow()}
-                  </Text>
-                  <View
-                    style={{
-                      width: 4,
-                      height: 4,
-                      borderRadius: 2,
-                      backgroundColor: globalColors.neutral8,
-                      marginHorizontal: 8,
-                    }}
-                  />
-
-                    <Text
-                      style={{
-                        fontSize: 10,
-                        lineHeight: 11,
-                        fontFamily: "RegularFont",
-                        color: globalColors.neutral_white["300"],
-                      }}
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
-                      onPress={() => onPressGroup({ groupId })}
-                    >
-                      {groupName}
-                    </Text>
-                </View>
-              </View>
-            </View>
-            <TouchableOpacity
-              onPress={() => {
-                onPressPostOption({ postId, name, profilePic });
-              }}
-            >
-              <OptionsIcon width={24} height={24} />
-            </TouchableOpacity>
-          </View>
+          />
+          <ImageFallBackUser
+            imageData={profilePic}
+            fullName={name}
+            widths={32}
+            heights={32}
+            borders={16}
+          />
           <View
             style={{
-              alignSelf: "stretch",
               flexDirection: "column",
               alignItems: "flex-start",
             }}
           >
-            {/* <TouchableOpacity
+            <TouchableOpacity onPress={() => handlePressProfile()}>
+              <Text
+                style={{
+                  fontSize: 14,
+                  lineHeight: 16,
+                  fontFamily: "MediumFont",
+                  color: globalColors.neutral_white["200"],
+                  left: "7%",
+                }}
+              >
+                {name}
+              </Text>
+            </TouchableOpacity>
+
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                width: "100%",
+                left: "25%",
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 10,
+                  fontFamily: "RegularFont",
+                  color: globalColors.neutral_white["300"],
+                }}
+              >
+                {moment.utc(postTime).utcOffset("+05:30").fromNow()}
+              </Text>
+              <View
+                style={{
+                  width: 4,
+                  height: 4,
+                  borderRadius: 2,
+                  backgroundColor: globalColors.neutral8,
+                  marginHorizontal: 8,
+                }}
+              />
+
+              <Text
+                style={{
+                  fontSize: 10,
+                  lineHeight: 11,
+                  fontFamily: "RegularFont",
+                  color: globalColors.neutral_white["300"],
+                }}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                onPress={() => onPressGroup({ groupId })}
+              >
+                {groupName}
+              </Text>
+            </View>
+          </View>
+        </View>
+        <TouchableOpacity
+          onPress={() => {
+            onPressPostOption({ postId, name, profilePic });
+          }}
+        >
+          <OptionsIcon width={24} height={24} />
+        </TouchableOpacity>
+      </View>
+      <View
+        style={{
+          alignSelf: "stretch",
+          flexDirection: "column",
+          alignItems: "flex-start",
+        }}
+      >
+        {/* <TouchableOpacity
               onPress={() => onPressGroup({ groupId })}
               style={{
                 borderRadius: 8,
@@ -170,22 +190,24 @@ const TopPostComponent = ({
               </Text>
             </TouchableOpacity> */}
 
-            <TouchableOpacity disabled>
-              <Text
-                style={{
-                  fontSize: 14,
-                  fontFamily: fontFamilies.medium,
-                  color: globalColors.neutral_white["100"],
-                  marginTop: "5%",
-                }}
-                // numberOfLines={isExpanded ? undefined : 2}
-              >
-                {description}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-  )
+        <TouchableOpacity disabled>
+          <Text
+            style={{
+              fontSize: 14,
+              fontFamily: fontFamilies.medium,
+              color: globalColors.neutral_white["100"],
+              marginTop: "5%",
+            }}
+            // numberOfLines={isExpanded ? undefined : 2}
+          >
+            {description != "" && description != null && (
+              <RichText text={description} mentions={[]} />
+            )}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 }
 
 export default memo(TopPostComponent)

@@ -68,6 +68,7 @@ import { router } from "expo-router";
 import { usePostDetailStore } from "@/zustand/PostDetailStore";
 import { R2_PUBLIC_URL } from "@/utils/constants";
 import { useLocalSearchParams } from "expo-router";
+import MultiImageCropComponent from "@/components/MultiImageCropComponent";
 
 const { width } = Dimensions.get("window");
 
@@ -223,7 +224,8 @@ const CreatePostScreen = () => {
     setIsBottomSheetOpen,
     setVideoUri,
     setMultiSelectImages,
-    setSelectedGroup
+    setSelectedGroup,
+    pendingImages
 
   } = createPostViewModel;
 
@@ -1325,11 +1327,12 @@ const CreatePostScreen = () => {
       <ManualCropModal
         visible={cropModalVisible}
         imageUri={currentCropImage?.uri}
-        currentIndex={cropIndex + 1}
+        currentIndex={cropIndex}
         totalImages={allSelectedImages.length}
         onComplete={handleCropComplete}
         onCancel={handleCropCancel}
       />
+
     </ViewWrapper>
   );
 };

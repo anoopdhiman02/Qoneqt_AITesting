@@ -12,7 +12,6 @@ import { router, useLocalSearchParams } from "expo-router";
 import ViewWrapper from "../../../components/ViewWrapper";
 import ScreenHeaderComponent from "../../../components/Header/ScreenHeaderComponent";
 import Button1 from "../../../components/buttons/Button1";
-import OTPInputView from "@twotalltotems/react-native-otp-input";
 import { EditIcon } from "@/assets/DarkIcon";
 import useVerifyOtpViewModel from "./viewModel/VerifyOtpViewModel";
 import { fontFamilies } from "@/assets/fonts";
@@ -243,18 +242,6 @@ const VerifyKycOtpScreen = () => {
             </TouchableOpacity>
           </View>
 
-          {/* <OTPInputView
-            style={{ width: "100%", height: 100 }}
-            pinCount={5}
-            editable={true}
-            onCodeChanged={(code: any) => {
-              onCodeChanged(code);
-            }}
-            autoFocusOnLoad={Platform?.OS === "ios" ? true : false} //ios true
-            codeInputFieldStyle={styles.underlineStyleBase}
-            codeInputHighlightStyle={styles.underlineStyleHighLighted}
-            onCodeFilled={(code) => {}}
-          /> */}
 
 <CodeField
         ref={ref}
@@ -356,6 +343,9 @@ const VerifyKycOtpScreen = () => {
               value={newContact}
               onChangeText={(text) => onEnterNewContact(text)}
               placeholderTextColor={globalColors.neutral7}
+              keyboardType={isLoginMobile === 1 ? "number-pad" : "email-address"}
+              autoCapitalize={"none"}
+              maxLength={isLoginMobile === 1 ? 13 : 100}
               style={{
                 fontSize: 14,
                 fontFamily: fontFamilies.regular,

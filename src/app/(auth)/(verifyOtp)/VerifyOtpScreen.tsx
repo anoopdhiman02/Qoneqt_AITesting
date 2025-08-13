@@ -13,7 +13,6 @@ import { router, useLocalSearchParams } from "expo-router";
 import ViewWrapper from "../../../components/ViewWrapper";
 import ScreenHeaderComponent from "../../../components/Header/ScreenHeaderComponent";
 import Button1 from "../../../components/buttons/Button1";
-import OTPInputView from "@twotalltotems/react-native-otp-input";
 import { EditIcon } from "@/assets/DarkIcon";
 import useVerifyOtpViewModel from "./viewModel/VerifyOtpViewModel";
 import { fontFamilies } from "@/assets/fonts";

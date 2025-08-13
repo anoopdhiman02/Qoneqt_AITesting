@@ -786,10 +786,6 @@ const [keyboardHeight, setKeyboardHeight] = useState(0);
       keyboardBlurBehavior="restore"
       android_keyboardInputMode="adjustResize"
     >
-    {/* <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    > */}
       <LinearGradient style={styles.gradientContainer} colors={gradientColors}>
         
           <View style={styles.contentContainer}>
@@ -820,8 +816,8 @@ const [keyboardHeight, setKeyboardHeight] = useState(0);
             style={[
               styles.inputOuterContainer,
               {
-                marginBottom:isKeyboardVisible ?  Platform.OS === "ios" ? keyboardHeight : insets.bottom : insets.bottom,
-                //  marginBottom:isKeyboardVisible ?  Platform.OS === "ios" ? keyboardHeight : (height * 0.1) + insets.bottom : insets.bottom,
+                marginBottom:isKeyboardVisible ?  Platform.OS === "ios" ? keyboardHeight : insets.bottom > 0? height * 0.38: insets.bottom: insets.bottom,
+                //  marginBottom:isKeyboardVisible ?  Platform.OS === "ios" ? keyboardHeight :  insets.bottom : insets.bottom,
               },
             ]}
           >
@@ -878,7 +874,6 @@ const [keyboardHeight, setKeyboardHeight] = useState(0);
           handleModalConfirm={handleModalConfirm}
         />
       </Modal>
-      {/* </KeyboardAvoidingView> */}
     </BottomSheet>
   );
 };

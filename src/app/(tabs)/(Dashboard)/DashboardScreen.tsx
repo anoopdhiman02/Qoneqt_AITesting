@@ -5,7 +5,6 @@ import {
   Animated,
   Linking,
   Modal,
-  TouchableWithoutFeedback,
   Keyboard,
 } from "react-native";
 import DashboardHeader from "@/components/element/DashboardHeader";
@@ -38,7 +37,7 @@ import {
   setUserData,
 } from "@/redux/slice/login/LoginUserSlice";
 import { useDispatch, useSelector, shallowEqual } from "react-redux";
-import { setPrefsValue } from "@/utils/storage";
+import { getPrefsValue, setPrefsValue } from "@/utils/storage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useScrollStore } from "@/zustand/scrollStore";
 import { fetchMyProfileDetails } from "@/redux/reducer/Profile/FetchProfileDetailsApi";
@@ -53,7 +52,6 @@ import { useHomePostStore } from "@/zustand/HomePostStore";
 import { Styles } from "../../styles/dashboardStyle";
 import KycButton from "@/components/KycButtonView";
 import { setHomePostSlice } from "@/redux/slice/home/HomePostSlice";
-import FloatingButton from "@/components/FloatingButton/FloatingButton";
 import { useSharedValue, withSpring } from "react-native-reanimated";
 import { onKycSendOtp } from "@/redux/reducer/kyc/kycDetails";
 import HomePostContainer from "@/components/element/HomePostContainer";
@@ -81,7 +79,6 @@ import BottomSheets, {
 import { FlashList } from "@shopify/flash-list";
 import PostLoaderComponent from "@/components/PostLoaderComponent";
 import { useVideoPlayerStore } from "@/zustand/VideoPlayerStore";
-import { onFetchTrendingPost } from "@/redux/reducer/home/TrendingPostApi";
 import { setMyUserFeedData } from "@/redux/slice/profile/ProfileMyFeedsSlice";
 import { commentLoading } from "@/redux/slice/post/FetchCommentsSlice";
 import { resetNewFeedCount } from "@/redux/slice/home/NewFeedCountSlice";
@@ -94,56 +91,107 @@ import CommentsBottomSheet from "@/app/(features)/(viewPost)/component/CommentsB
 import BottomSheet from "@gorhom/bottom-sheet";
 import useKeyboardVisible from "@/app/hooks/useKeyboardVisible";
 import { onFetchMyUserFeeds } from "@/redux/reducer/Profile/FetchUserFeeds";
+import { Image } from "expo-image";
+import React from "react";
+import { calculateHeight } from "@/utils/ImageHelper";
+import { setHomeNextPostData } from "@/redux/slice/home/HomePostNextSlice";
+
+// Optimized selectors with proper memoization
+const selectOptimizedPostData = (state: any) => {
+  const rawData = state?.homePost?.UpdatedData ?? [];
+  
+  // Debug log to see the actual structure
+  
+  const safeData = Array.isArray(rawData) ? rawData : [];
+  
+  if (safeData.length === 0) {
+   
+    return [];
+  }
+  
+  const uniqueMap = new Map();
+  safeData.forEach((item, index) => {
+    if (item?.id && !uniqueMap.has(item.id)) {
+      uniqueMap.set(item.id, item);
+    } else if (!item?.id) {
+      console.log(`⚠️ Item at index ${index} has no ID:`, item);
+    }
+  });
+  
+  const result = Array.from(uniqueMap.values());
+  console.log('✅ Selector result:', result.length, 'unique items');
+  return result;
+};
+
+
+// Interface for UI State optimization
+interface UIState {
+  isNextPostLoading: boolean;
+  showButton: boolean;
+  headerVisible: boolean;
+  currentPlaying: number | null;
+  commentIndex: number;
+  isFloating: boolean;
+  showKycBtn: boolean;
+  isModalVisible: boolean;
+  modalShown: boolean;
+  refreshing: boolean;
+}
 
 const DashboardScreen = () => {
   useScreenTracking("DashboardScreen");
   const dispatch = useDispatch();
-  const scrollViewRef: any = useRef<FlashList<any>>(null);
+  
+  // Refs for performance optimization
+  const scrollViewRef = useRef<FlashList<any>>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const scrollY = useRef(0);
   const onCommentRef = useRef<BottomSheet>(null);
-  const [isNextPostLoading, setIsNextPostLoading] = useState(false);
+  const lastCacheCleanup = useRef(Date.now());
+  const headerAnimation = useRef(new Animated.Value(1)).current;
+  
+  // State optimization - group related states
+  const [uiState, setUiState] = useState<UIState>({
+    isNextPostLoading: false,
+    showButton: false,
+    headerVisible: true,
+    currentPlaying: null,
+    commentIndex: -1,
+    isFloating: false,
+    showKycBtn: false,
+    isModalVisible: false,
+    modalShown: false,
+    refreshing: false,
+  });
+
+  const [profileImage, setProfileImage] = useState("");
+  const [postGroupData, setPostGroupData] = useState("");
+
+  // Hooks and stores
   const isFocused = useIsFocused();
   const userId = useAppStore((state) => state.userId);
+  const { refreshHome } = useAppStore();
+  
+  // Custom hooks
   const { onFetchHomeHandler, onFetchTrendingHandler } = useHomeViewModel();
   const { onFetchCommentHandler } = usePostCommentsHook();
   const { updateAvailable } = useCheckVersionStore();
-  const homePostResponse = useSelector(selectHomePostResponse, shallowEqual);
-  const homePostNextResponse = useSelector(
-    selectHomePostNextResponse,
-    shallowEqual
-  );
-  const trendingPostResponse = useSelector(
-    selectTrendingPostResponse,
-    shallowEqual
-  );
-  const dynamiContentStatus = useSelector(
-    selectDynamicContentStatus,
-    shallowEqual
-  );
-
-  const userDetailsData = useSelector((state: any) => state.myProfileData, shallowEqual);
-  const userData = useSelector(selectLoginUserData, shallowEqual);
-  const newPostCount = useSelector(selectNewPostCount);
-  const { deletePostModal, setDeletePostModal } = useDeletePostModal();
-
-  const [showButton, setShowButton] = useState(false);
-  const [headerVisible, setHeaderVisible] = useState(true);
-  const [currentPlaying, setCurrentPlaying] = useState<number | null>(null);
-  const headerAnimation = useRef(new Animated.Value(1)).current;
+  const { onPressUpdateHandler, onPressSkip } = useCheckAppVersionHook();
+  const { OnRefreshHandlerHome, MyCommunities, AllGroupList } = useHomeViewModel();
+  const { onPressBlockHandler, blockLoading } = useBlockUserHook();
+  
+  // Zustand stores
   const { Selectedtab, setSelectedTab } = useHomePostStore();
-  const { refreshHome } = useAppStore();
   //@ts-ignore
   const { setScrollViewRef, scrollToTop } = useScrollStore();
   const { force_update, version } = useCheckVersionStore();
-  const { onPressUpdateHandler, onPressSkip } = useCheckAppVersionHook();
-  const { OnRefreshHandlerHome, MyCommunities, AllGroupList } =
-    useHomeViewModel();
   const { commentData, setCommentData } = useCommentStore();
-  const { onPressBlockHandler, blockLoading } = useBlockUserHook();
   const { setReportUserDetails, reportUserDetails } = useReportStore();
   const { setID } = useIdStore();
   const { setRefresh_Button, refresh_Button } = useRefreshShow();
+  const { deletePostModal, setDeletePostModal } = useDeletePostModal();
+  const { isFlex, setIsFlex } = userShowAnimatedToggle();
+  
   const {
     setPostId,
     setPostedByUserId,
@@ -154,43 +202,71 @@ const DashboardScreen = () => {
     setPostValue,
     postValue,
   } = usePostDetailStore();
-  const { onSetUserFromType, setIsVerified, onSetShowKycModalStore } =
-    useAppStore();
-  const [modalShown, setModalShown] = useState(false);
-  const { isFlex, setIsFlex } = userShowAnimatedToggle();
-  const [isGroup, setIsGroup] = useState(1);
-  const [isFloating, setIsFloating] = useState(false);
-  const [showKycBtn, setShowKycBtn] = useState(false);
-  const [profileImage, setProfileImage] = useState("");
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const isLoginMobile = getLoggedMobile();
-  const [postGroupData, setPostGroupData] = useState("");
-  const { profileRef, blockUserRef } = useBottomSheetRefs();
+  
+  const { onSetUserFromType, setIsVerified, onSetShowKycModalStore } = useAppStore();
+
+  // Selectors with proper memoization
+  const homePostResponse = useSelector(selectHomePostResponse, shallowEqual);
+  const homePostNextResponse = useSelector(selectHomePostNextResponse, shallowEqual);
+  const trendingPostResponse = useSelector(selectTrendingPostResponse, shallowEqual);
+  const dynamiContentStatus = useSelector(selectDynamicContentStatus, shallowEqual);
+  const userDetailsData = useSelector((state: any) => state.myProfileData, shallowEqual);
+  const userData = useSelector(selectLoginUserData, shallowEqual);
+  const newPostCount = useSelector(selectNewPostCount);
+  const postDetailResponse = useSelector((state: any) => state.myFeedData, shallowEqual);
+  const myProfileData = useSelector((state: any) => state.myProfileData, shallowEqual);
+  const submitPostResponse = useSelector((state: any) => state?.createPostData, shallowEqual);
+  
+  // Optimized post data with memoization
+  const postData = useSelector(selectOptimizedPostData, shallowEqual);
+
+  // Other hooks
   const videoRef = useVideoPlayerStore.getState().videoRef;
   const isVideoPlaying = useVideoPlayerStore.getState().isPlay;
-  const [commentIndex, setCommentIndex] = useState(-1);
-  const postDetailResponse = useSelector(
-    (state: any) => state.myFeedData,
-    shallowEqual
-  );
   const keyboardVisible = useKeyboardVisible();
   const createPostViewModel = useCreatePostViewModel();
-    const {
-      onSubmitPostHandler,
-    } = createPostViewModel;
-  const myProfileData = useSelector(
-    (state: any) => state.myProfileData,
-    shallowEqual
-  );
-  const submitPostResponse = useSelector(
-    (state: any) => state?.createPostData,
-    shallowEqual
-  );
+  const { onSubmitPostHandler } = createPostViewModel;
+  const isLoginMobile = getLoggedMobile();
+  const { profileRef, blockUserRef } = useBottomSheetRefs();
+  const finalPostData = useMemo(() => {
+    const rawData =homePostResponse?.UpdatedData ?? [];
+    const safeData = Array.isArray(rawData) ? rawData : [];
+
+    const uniqueMap = new Map();
+    safeData?.forEach((item) => {
+      if (item?.id) {
+        uniqueMap.set(item.id, item);
+      }
+    });
+
+    return Array.from(uniqueMap.values());
+  }, [homePostResponse]);
+  // Memoized calculations
   const getNewPost = useMemo(
-    () => showButton && newPostCount?.count && newPostCount?.count != 0,
-    [showButton, newPostCount]
+    () => uiState.showButton && newPostCount?.count && newPostCount?.count != 0,
+    [uiState.showButton, newPostCount]
   );
 
+  const translateX = useSharedValue(isFlex ? 18 : 0);
+
+  // Optimized cleanup function
+  const cleanup = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    
+    if (videoRef && isVideoPlaying) {
+      videoRef.pauseAsync().catch(console.warn);
+    }
+    
+    // Periodic cache cleanup
+    if (Date.now() - lastCacheCleanup.current > 300000) { // 5 minutes
+      Image.clearMemoryCache();
+      lastCacheCleanup.current = Date.now();
+    }
+  }, [videoRef, isVideoPlaying]);
+
+  // Optimized delete post modal update
   const updateDeletePostModal = useCallback(
     (postId: any) => {
       const updatedData = homePostResponse?.UpdatedData.filter(
@@ -207,11 +283,14 @@ const DashboardScreen = () => {
             (item: any) => item?.id != postId
           )
         : [];
+      
       dispatch(setHomePostSlice(updatedData));
       dispatch(setMyUserFeedData(updateUserPostData));
+      
       if (trendingPostResponse?.data) {
         dispatch(trendingUserPost(updateTrendingData));
       }
+      
       if (
         deletePostData?.length > 0 &&
         deletePostData?.[0]?.post_by?.id == userId
@@ -219,186 +298,66 @@ const DashboardScreen = () => {
         const updatedProfileDatas: any = {
           data: {
             ...myProfileData.data,
-            post_count: myProfileData.data.post_count -1,
+            post_count: myProfileData.data.post_count - 1,
           },
         };
         dispatch(updateProfileData(updatedProfileDatas));
       }
     },
-    [
-      homePostResponse?.UpdatedData,
-      trendingPostResponse?.data,
-      postDetailResponse.updatedData,
-    ]
+    [homePostResponse?.UpdatedData, trendingPostResponse?.data, postDetailResponse.updatedData, dispatch, userId, myProfileData.data]
   );
 
-  useEffect(() => {
-    if (scrollViewRef.current) {
-      scrollViewRef.current.scrollToOffset({ offset: 0, animated: true });
-    }
-  }, [Selectedtab]);
-
-  useEffect(() => {
-    if (Array.isArray(trendingPostResponse?.data) && trendingPostResponse?.data?.length == 0 && userId) {
-      onFetchHomeHandler({
-        isLoadMore: false,
-        isFirst: false,
-        lastCount: 0,
-      });
-      dispatch(
-        //@ts-ignore
-        onFetchTrendingPost({
-          userId: userId,
-          lastCount: 0,
-        })
-      );
-    }
-  }, []);
-
-  useEffect(() => {
-    if (isFocused && userId) {
-      setScrollViewRef(scrollViewRef); // Store the reference in Zustand
-      checkPermission();
-    }
-    // Notification message listener
-    const unsubscribe = messaging().onMessage(async (remoteMessage) => {
-      if (remoteMessage?.data?.type === "kyc_verified" && isFocused) {
-        dispatch(
-          //@ts-ignore
-          fetchMyProfileDetails({
-            userId: userId,
-          })
-        );
-      }
-    });
-    // Back button handler
-    const backHandler = BackHandler.addEventListener(
-      "hardwareBackPress",
-      () => {
-        console.log("🚀 ~ backHandler ~ keyboardVisible:", keyboardVisible, commentIndex)
-        if(keyboardVisible){
-          Keyboard.dismiss();
-          return true;
-        }
-        if(commentIndex == -1){
-          // setCommentIndex(1);
-          onCommentRef.current?.close();
-          return true;
-        }
-        
-            // commentRef.current?.close();
-            Alert.alert("Hold on!", "Are you sure you want to exit?", [
-              { text: "Cancel", style: "cancel" },
-              { text: "Exit", onPress: () => BackHandler.exitApp() },
-            ]);
-          
-        
-        return true;
-      }
-    );
-    return () => {
-      unsubscribe();
-      backHandler.remove();
-      if (timeoutRef?.current) {
-        clearTimeout(timeoutRef.current);
-      }
-      if (videoRef && isVideoPlaying) {
-        // videoRef?.pauseAsync(); // pause when navigating away
-      }
-    };
-  }, []);
-
-  // Ensure this runs only once on component mount
-  useEffect(() => {
-    const fetchRefData = async () => {
-      try {
-        if (refreshHome && isFocused) {
-          await Promise.all([
-            onFetchHomeHandler({
-              isLoadMore: false,
-              isFirst: false,
-              lastCount: 0,
-            }),
-          ]);
-        }
-      } catch (error) {
-        console.error("Error fetching Ref data:", error);
-      }
-    };
-    fetchRefData();
-    MyCommunities();
-  }, [refreshHome]);
-
-  useEffect(() => {
-    if (userId && isFocused) {
-      //@ts-ignore
-      dispatch(DynamicContentStatusReq({ user_id: userId }));
-      // Newfeed();
-    }
-  }, [userId, isFocused]);
-
-  useEffect(() => {
-    if (headerVisible) {
-      Animated.timing(headerAnimation, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: false,
-      }).start();
-    } else {
-      Animated.timing(headerAnimation, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: false,
-      }).start();
-    }
-  }, [headerVisible]);
-
-  useEffect(() => {
-    if (!userDetailsData?.success) return;
-
-    const userData = userDetailsData.data;
-    const kycStatus = userData?.kyc_details?.status;
-
-    dispatch(setUserData(userData));
-
-    const shouldShowKyc =
-      !userData?.kyc_details || [0, -1, 3, 6].includes(kycStatus);
-
-    setShowKycBtn(shouldShowKyc);
-
-    // Avoid re-rendering if values haven't changed
-    if (userData?.profile_pic) setProfileImage(userData?.profile_pic);
-
-    const [firstName = "", lastName = ""] =
-      userData.full_name?.split(" ") || [];
-    setFirstNameLocal({ first: firstName });
-    setLastNameLocal({ last: lastName });
-  }, [userDetailsData]);
-
-  useEffect(() => {
-    if (headerVisible) {
-      translateX.value = withSpring(isFlex ? 26 : 3);
-    }
-  }, [headerVisible, isFlex]);
-
-  useEffect(() => {
-   if(userDetailsData?.data?.id == undefined){
-    //@ts-ignore
-    dispatch(fetchMyProfileDetails({ userId: userId }));
-    dispatch(
-      //@ts-ignore
-      onFetchMyUserFeeds({ userId, profileId: userId, lastCount: 0 })
-    );
-   }
-  }, [userDetailsData]);
-
-
-
-  // Reset the button state if the user starts scrolling manually
-  const handleScrollButton = (event: any) => {
+  // Optimized scroll handler
+  const handleScroll = useCallback((event) => {
     const offsetY = event.nativeEvent.contentOffset.y;
-    setShowButton(offsetY > 1500 && !showButton);
-  };
+    scrollY.current = offsetY;
+
+    const isScrollingDown = offsetY > 1000;
+    const newHeaderVisible = !isScrollingDown;
+    
+    if (newHeaderVisible !== uiState.headerVisible) {
+      setUiState(prev => ({ ...prev, headerVisible: newHeaderVisible }));
+    }
+  }, [uiState.headerVisible]);
+
+  // Optimized scroll button handler
+  const handleScrollButton = useCallback((event: any) => {
+    const offsetY = event.nativeEvent.contentOffset.y;
+    const newShowButton = offsetY > 1500 && !uiState.showButton;
+    
+    if (newShowButton !== uiState.showButton) {
+      setUiState(prev => ({ ...prev, showButton: newShowButton }));
+    }
+  }, [uiState.showButton]);
+
+  // Optimized comment handler
+  const onPressHomeCommentHandler = useCallback((postId: any, userId: any) => {
+    setIsComment(true);
+    setUiState(prev => ({ ...prev, commentIndex: -1 }));
+    dispatch(commentLoading(true));
+    onCommentRef.current?.expand();
+    onFetchCommentHandler(postId, 0);
+    setPostId(postId);
+    setPostedByUserId(userId);
+  }, [dispatch, onFetchCommentHandler, setIsComment, setPostId, setPostedByUserId]);
+
+  // Optimized post option handler
+  const onPressPostOption = useCallback((data: any) => {
+    const userData = data?.postBy || data?.post_by;
+    const groupData = data?.loop_group;
+    
+    setReportUserDetails({
+      name: userData?.full_name,
+      userId: userData?.id,
+      profilePic: userData?.profile_pic,
+      reportId: userData?.id,
+    });
+    setPostValue(data);
+    setPostGroupData(groupData);
+    setPostedByUserId(userData?.id);
+    profileRef?.current?.expand();
+  }, [setReportUserDetails, setPostValue, setPostedByUserId, profileRef]);
+
 
   const Newfeed = () => {
     if (userId && homePostResponse?.UpdatedData[0]?.id) {
@@ -411,21 +370,165 @@ const DashboardScreen = () => {
       );
     }
   };
+  // Optimized post press handler
+  const onPressPost = useCallback((data: any) => {
+    logEvent("post_click", {
+      post_id: data?.id,
+      type: Selectedtab === 1 ? "home" : "trending",
+    });
+    
+    const { setID } = useIdStore.getState();
+    
+    if (Selectedtab === 1) {
+      setID("3");
+    } else if (Selectedtab === 2) {
+      setID("4");
+    }
 
-  const debouncedEndReached = async () => {
+    if (data.file_type == "video") {
+      TrackPlayer.stop();
+    }
+
+    dispatch(upgradePostData(data));
+    router.push({
+      pathname: "/post/[id]",
+      params: {
+        id: data?.id,
+        Type: Selectedtab === 1 ? "home" : "trending",
+        isNotification: "here",
+        categoryName: data?.loop_group?.category.category_name,
+      },
+    });
+  }, [Selectedtab, dispatch]);
+
+  // Optimized viewable items changed handler
+  const onViewableItemsChanged = useCallback(({ viewableItems, changed }: any) => {
+    if (viewableItems.length === 0) return;
+
+    const lastVisibleIndex = Math.max(
+      ...viewableItems.map((item) => item.index || 0)
+    );
+    const postsToTriggerAt = Math.floor(lastVisibleIndex % 16);
+    
+    if (postsToTriggerAt == 0 && lastVisibleIndex > 10) {
+      Newfeed();
+    }
+
+    // Optimized prefetching - use finalPostData
+    viewableItems.forEach((viewableItem, index) => {
+      if (index < viewableItems.length - 1) {
+        const nextItem = finalPostData[viewableItem.index + 1];
+        if (nextItem?.file_type === "image") {
+          const urlsToPreload = Array.isArray(nextItem.post_image) 
+            ? nextItem.post_image.slice(0, 2) // Reduced from 4 to 2
+            : [nextItem.post_image];
+          
+          urlsToPreload.forEach(url => {
+            Image.prefetch(`https://cdn.qoneqt.com/${url}`, { cachePolicy: 'memory-disk' });
+          });
+        }
+        if (nextItem?.file_type === "video") {
+          Image.prefetch(`https://cdn.qoneqt.com/${nextItem.video_snap_path}`, { cachePolicy: 'memory-disk' });
+        }
+      }
+    });
+  }, [finalPostData, Newfeed]); // Use finalPostData instead of fallbackPostData
+
+  // Optimized refresh handler
+  const handleRefresh = useCallback(async () => {
+    setUiState(prev => ({ ...prev, refreshing: true }));
+      var newPostData: any = await dispatch(
+        // @ts-ignore
+        onFetchHomePost({
+          userId: userId,
+          lastCount: 0,
+          limit_count: 10,
+        })
+      );
+
+      if (newPostData?.payload?.data?.length > 0) {
+        var newData = await Promise.all(newPostData?.payload?.data?.map(async (item) => {
+                  if(item?.file_type == "image"){
+                    return {
+                      ...item,
+                      display_height: (await Promise.all(calculateHeight(item)))
+                    };
+                  }
+                  return {
+                    ...item
+                  };
+                }));
+        dispatch(setHomePostSlice(newData));
+        setPrefsValue(
+          "homePostData",
+          JSON.stringify(newData)
+        );
+      }
+      setUiState(prev => ({ ...prev, refreshing: false }));
+      MyCommunities();
+  }, [ userId, dispatch, setPrefsValue, MyCommunities]);
+
+  // Optimized render item function
+  const renderHomeItem = useCallback(({ item, index }) => {
+    if (!item) {
+      return <PostLoaderComponent />;
+    }
+
+    return (
+      <View
+        key={item?.id || `post-${index}`}
+        style={{
+          width: "100%",
+          paddingBottom: 15,
+          borderBottomWidth: 0.5,
+          borderBottomColor: globalColors.neutral_white[500],
+        }}
+      >
+        <HomePostContainer
+          Type={Selectedtab === 1 ? "home" : "trending"}
+          onPressComment={(postId: any, userId: any) => {
+            logEvent("post_comment", {
+              post_id: postId,
+              user_id: userId,
+              type: Selectedtab === 1 ? "home" : "trending",
+            });
+            setCommentData(item?.comments || []);
+            onPressHomeCommentHandler(postId, userId);
+            setID(Selectedtab === 1 ? "3" : "4");
+          }}
+          onPressPostOption={(data) => {
+            logEvent("post_option", {
+              post_id: item?.id,
+              type: Selectedtab === 1 ? "home" : "trending",
+            });
+            onPressPostOption(item);
+          }}
+          data={item}
+          index={index}
+          isPlaying={uiState.currentPlaying === item.id}
+          setCurrentPlaying={(id) => setUiState(prev => ({ ...prev, currentPlaying: id }))}
+          userInfo={userDetailsData?.data}
+          postPress={() => onPressPost(item)}
+        />
+      </View>
+    );
+  }, [Selectedtab, userDetailsData, onPressHomeCommentHandler, onPressPostOption, onPressPost, uiState.currentPlaying, setCommentData, setID]);
+
+  // Debounced end reached handler
+  const debouncedEndReached = useCallback(async () => {
     try {
-      // Skip if already loading
-      if (isNextPostLoading || !userId) return;
+      if (uiState.isNextPostLoading || !userId) return;
+      
       const updatedLength = homePostResponse.UpdatedData.length;
       if (!homePostResponse.isLoaded && isFocused) {
-        setIsNextPostLoading(true);
+        setUiState(prev => ({ ...prev, isNextPostLoading: true }));
 
         const newCombinedData = [
           ...homePostResponse.UpdatedData,
           ...homePostNextResponse.data,
         ];
         dispatch(setHomePostSlice(newCombinedData));
-        dispatch(
+      var newPostDataValue: any = await dispatch(
           //@ts-ignore
           onFetchHomeNextPost({
             userId,
@@ -433,87 +536,206 @@ const DashboardScreen = () => {
             limit_count: 100,
           })
         );
-        setIsNextPostLoading(false);
+        if(newPostDataValue?.payload?.data?.length > 0){
+          var newData = await Promise.all(newPostDataValue?.payload?.data?.map(async (item) => {
+            if(item?.file_type == "image"){
+              return {
+                ...item,
+                display_height: (await Promise.all(calculateHeight(item)))
+              };
+            }
+            return {
+              ...item
+            };
+          }));
+
+          // console.log("newData>>>>", JSON.stringify(newData));
+
+          dispatch(setHomeNextPostData(newData));
+          setPrefsValue("homePostData", JSON.stringify(newData));
+          
+        }
+        setUiState(prev => ({ ...prev, isNextPostLoading: false }));
       }
     } catch (error) {
       console.error("Error fetching debounced data:", error);
-      setIsNextPostLoading(false); // fallback
+      setUiState(prev => ({ ...prev, isNextPostLoading: false }));
     }
-  };
+  }, [uiState.isNextPostLoading, userId, homePostResponse, homePostNextResponse, isFocused, dispatch]);
 
-  //FlatList scroll
-  const handleScroll = (event) => {
-    const offsetY = event.nativeEvent.contentOffset.y;
-    scrollY.current = offsetY;
+  // Optimized fetch next post
+  const fetchNextPost = useCallback(async () => {
+    const newPostDataValue: any = await dispatch(
+      //@ts-ignore
+      onFetchHomeNextPost({
+        userId,
+        lastCount: 10,
+        limit_count: 100,
+      })
+    );
+    
+    if (newPostDataValue?.payload?.data && Array.isArray(newPostDataValue?.payload?.data) && newPostDataValue?.payload?.data?.length > 0) {
+      var newData = await Promise.all(newPostDataValue?.payload?.data?.map(async (item) => {
+        if(item?.file_type == "image"){
+          return {
+            ...item,
+            display_height: (await Promise.all(calculateHeight(item)))
+          };
+        }
+        return {
+          ...item
+        };
+      }));
+      const newCombinedData = [
+        ...homePostResponse.UpdatedData,
+        ...newData,
+      ];
+      dispatch(setHomePostSlice(newCombinedData));
+    }
+  }, [userId, homePostResponse.UpdatedData, dispatch]);
 
-    const isScrollingDown = offsetY > 1000;
-    setHeaderVisible(!isScrollingDown);
-  };
+  // Optimized refresh post data handler
+  const onRefreshPostData = useCallback((newCount) => {
+    dispatch(resetNewFeedCount());
+    setRefresh_Button(false);
+    scrollToTop();
+    if (newCount && newCount > 0) {
+      Promise.all([OnRefreshHandlerHome()]).catch((error) =>
+        console.error("Error in onRefreshPostData:", error)
+      );
+    }
+    MyCommunities();
+  }, [dispatch, setRefresh_Button, scrollToTop, OnRefreshHandlerHome, MyCommunities]);
 
-  const onPressHomeCommentHandler = useCallback((postId: any, userId: any) => {
-    setIsComment(true);
-    setCommentIndex(-1);
-    dispatch(commentLoading(true));
-    // router.push("/Comment");
-    onCommentRef.current.expand();
-     
-    onFetchCommentHandler(postId, 0);
-    setPostId(postId);
-    setPostedByUserId(userId);
-  }, []);
+  // Optimized delete post handler
+  const deletePostHandler = useCallback(async () => {
+    setDeletePostModal(false);
+    var deletePostData: any = await dispatch(
+      //@ts-ignore
+      onDeletePost({ post_id: postId, user_id: userId })
+    );
 
-  const onPressReportOption = ({ reportId, name, ProfilePic }) => {
-    setReportUserDetails({
-      reportId: reportId,
-      name: name,
-      profilePic: ProfilePic,
-      reportType: "post",
-    });
-    profileRef.current.close();
-    router.push("/ReportProfileScreen");
-  };
+    if (deletePostData?.payload?.success) {
+      updateDeletePostModal(postId);
+    }
+  }, [postId, userId, updateDeletePostModal, setDeletePostModal, dispatch]);
 
-  const onPressDeleteOption = () => {
-    profileRef.current.close();
-    setDeletePostModal(true);
-  };
+  // Optimized KYC press handler
+  const onKycPress = useCallback(async () => {
+    const kycData = userDetailsData?.data?.kyc_details || {};
+    const type = userDetailsData?.data?.type || 0;
+    const contact = isLoginMobile === 0 ? kycData.temp_email : kycData.phone;
+    const kycStatus =
+      userDetailsData?.data?.kyc_details?.status ||
+      userDetailsData?.data?.kyc_status;
+    const stepStatus = Number(userDetailsData?.data?.kyc_details?.finished_step);
+    const stepType = userDetailsData?.data?.kyc_details?.identification_type;
+    
+    const handleKycCompletion = async (path, params = {}) => {
+      onSetShowKycModalStore(false);
+      await storeUserKycStatus(1);
+      setIsVerified(1);
+      router.push({ pathname: path, params });
+    };
+    
+    onSetUserFromType(stepType === "google_auth" ? "google" : stepType);
+    const path = isLoginMobile === 0 ? "/SelectSocialkyc" : "/KycOnboardHoc";
+    
+    if (userDetailsData?.data?.kyc_details?.id) {
+      switch (kycStatus) {
+        case 0:
+          onSetUserFromType(stepType === "google_auth" ? "google" : stepType);
+          if (stepStatus === 1 || stepStatus === 2) {
+            router.push({
+              pathname: "/KycOnboardHoc",
+              params: { kycStepData: stepStatus },
+            });
+          } else {
+            //@ts-ignore
+            dispatch(onKycSendOtp({ userId, contact }));
+            router.push({
+              params: {
+                contact: contact,
+                countryCode: "+91",
+                userId: userId,
+                isMobile: 1,
+                login_type: 1,
+                isKyc: "true",
+              },
+              pathname: "/VerifyKycOtpScreen",
+            });
+          }
+          break;
 
-  const onSubmitBlockHandler = ({ profileId, isBlock }) => {
-    blockUserRef.current.close();
-    onPressBlockHandler({ profileId: profileId, isBlock: isBlock });
-  };
+        case 6:
+          router.push("/KycOnboardHoc");
+          break;
 
-  const onPressPostOption = useCallback((data: any) => {
-   const userData = data?.postBy || data?.post_by;
-    const groupData = data?.loop_group;
-    setReportUserDetails({
-      name:userData?.full_name,
-      userId: userData?.id,
-      profilePic: userData?.profile_pic,
-      reportId: userData?.id,
-    });
-    setPostValue(data);
-    setPostGroupData(groupData);
-    setPostedByUserId(userData?.id);
-    profileRef?.current?.expand();
-  }, []);
+        case 2:
+          await handleKycCompletion("/SuccessfullVerificationModal", {
+            status: "pending",
+          });
+          break;
 
-  const checkPermission = async () => {
+        case -1:
+          router.push({
+            pathname: path,
+            params: { kycStepData: 0 },
+          });
+          break;
+
+        case 3:
+          router.push({
+            pathname: "/SuccessfullVerificationModal",
+            params: { status: "reject" },
+          });
+          break;
+
+        case 5:
+          await handleKycCompletion("/SuccessfullVerificationModal", {
+            status: "panPending",
+          });
+          break;
+
+        case 1:
+          await handleKycCompletion("/DashboardScreen");
+          break;
+
+        case 4:
+          await handleKycCompletion("/KycOnboardHoc", {
+            kycStepData: userDetailsData?.data?.kyc_details?.ask_profile ? 6 : 5,
+            type,
+          });
+          break;
+        default:
+          router.replace("/DashboardScreen");
+      }
+    } else {
+      let kycStepData = 0;
+      if (stepStatus === 1) {
+        kycStepData = 1;
+      } else if (stepStatus === 2) {
+        kycStepData = stepType === "event" ? 3 : 2;
+      }
+
+      const stepParams = { kycStepData, type };
+      const path = isLoginMobile === 0 ? "/SelectSocialkyc" : "/KycOnboardHoc";
+      router.push({ pathname: path, params: stepParams });
+    }
+  }, [userDetailsData, isLoginMobile, userId, onSetShowKycModalStore, setIsVerified, onSetUserFromType, dispatch]);
+
+  // Helper functions
+  const checkPermission = useCallback(async () => {
     const { status } = await Notifications.getPermissionsAsync();
     if (status != "granted") {
       if (!userData.isFirstTimePopup) {
-        setIsModalVisible(true);
+        setUiState(prev => ({ ...prev, isModalVisible: true }));
       }
     }
-  };
+  }, [userData.isFirstTimePopup]);
 
-  const onToggle = (data) => {
-    setIsFlex(data);
-    setIsGroup(1);
-  };
-
-  const askNotificationPermission = () => {
-    setIsModalVisible(false);
+  const askNotificationPermission = useCallback(() => {
+    setUiState(prev => ({ ...prev, isModalVisible: false }));
     setTimeout(async () => {
       const { status } = await Notifications.requestPermissionsAsync({
         ios: {
@@ -541,397 +763,303 @@ const DashboardScreen = () => {
         );
       }
     }, 100);
-  };
+  }, [dispatch]);
 
-  const onPressPost = (data: any) => {
-    logEvent("post_click", {
-          post_id: data?.id,
-          type: Selectedtab === 1 ? "home" : "trending",
-        });
-        const { setID } = useIdStore.getState();
-    
-        if (Selectedtab === 1) {
-          setID("3");
-        } else if (Selectedtab === 2) {
-          setID("4");
-        }
+  const onToggle = useCallback((data) => {
+    setIsFlex(data);
+  }, [setIsFlex]);
 
-        if(data.file_type == "video"){
-          TrackPlayer.stop();
-          
-        }
-    
-dispatch(upgradePostData(data));
-        router.push({
-          pathname: "/post/[id]",
-          params: {
-            id: data?.id,
-            Type: Selectedtab === 1 ? "home" : "trending",
-            isNotification: "here",
-            categoryName: data?.loop_group?.category.category_name,
-          },
-        });
-  }
-  
-
-  const renderHomeItem = useCallback(({ item, index }) => {
-    if (item) {
-      return (
-        <View
-          key={index}
-          style={{
-            width: "100%",
-            paddingBottom: 15,
-            borderBottomWidth: 0.5,
-            borderBottomColor: globalColors.neutral_white[500],
-          }}
-        >
-          <HomePostContainer
-            Type={Selectedtab === 1 ? "home" : "trending"}
-            onPressComment={(postId: any, userId: any) => {
-              logEvent("post_comment", {
-                post_id: postId,
-                user_id: userId,
-                type: Selectedtab === 1 ? "home" : "trending",
-              });
-              setCommentData(item?.comments || []);
-              onPressHomeCommentHandler(postId, userId);
-
-              setID(Selectedtab === 1 ? "3" : "4");
-            }}
-            onPressPostOption={(data) => {
-              logEvent("post_option", {
-                post_id: item?.id,
-                type: Selectedtab === 1 ? "home" : "trending",
-              });
-              onPressPostOption(item)}}
-            data={item}
-            index={index}
-            key={index}
-            isPlaying={currentPlaying === item.id}
-            setCurrentPlaying={setCurrentPlaying}
-            userInfo={userDetailsData?.data}
-            postPress={() => {
-              onPressPost(item);
-            }}
-          />
-        </View>
-      );
-    } else {
-      return (
-        <View>
-          <PostLoaderComponent />
-        </View>
-      );
+  const onChangeSheetIndex = useCallback((index: number) => {
+    setUiState(prev => ({ ...prev, commentIndex: index }));
+    if (index == -1) {
+      setIsComment(false);
     }
-  }, []);
+  }, [setIsComment]);
 
-  const postData = useMemo(() => {
-    const rawData =
-      Selectedtab === 1
-        ? trendingPostResponse?.data ?? []
-        : homePostResponse?.UpdatedData ?? [];
-    const safeData = Array.isArray(rawData) ? rawData : [];
+  const uploadPostAgain = useCallback(() => {
+    onSubmitPostHandler({ isCreatePost: false });
+  }, [onSubmitPostHandler]);
 
-    const uniqueMap = new Map();
-    safeData?.forEach((item) => {
-      if (item?.id) {
-        uniqueMap.set(item.id, item);
+  const onPressReportOption = useCallback(({ reportId, name, ProfilePic }) => {
+    setReportUserDetails({
+      reportId: reportId,
+      name: name,
+      profilePic: ProfilePic,
+      reportType: "post",
+    });
+    profileRef.current?.close();
+    router.push("/ReportProfileScreen");
+  }, [setReportUserDetails, profileRef]);
+
+  const onPressDeleteOption = useCallback(() => {
+    profileRef.current?.close();
+    setDeletePostModal(true);
+  }, [profileRef, setDeletePostModal]);
+
+  const onSubmitBlockHandler = useCallback(({ profileId, isBlock }) => {
+    blockUserRef.current?.close();
+    onPressBlockHandler({ profileId: profileId, isBlock: isBlock });
+  }, [blockUserRef, onPressBlockHandler]);
+
+  // Effects
+  useEffect(() => {
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollToOffset({ offset: 0, animated: true });
+    }
+  }, [Selectedtab]);
+
+  // Debug logging for posts
+  useEffect(() => {
+    console.log('📊 PostData Debug:', {
+      postDataLength: postData?.length || 0,
+      homePostResponseLength: homePostResponse?.UpdatedData?.length || 0,
+      isHomePostLoaded: homePostResponse?.isLoaded,
+      Selectedtab,
+      userId,
+      isFocused
+    });
+  }, [postData, homePostResponse, Selectedtab, userId, isFocused]);
+
+  // Ensure we have initial data
+  useEffect(() => {
+    if (userId && isFocused && (!finalPostData || finalPostData.length === 0)) {
+      console.log('🔄 Fetching initial home data...');
+      onFetchHomeHandler({
+        isLoadMore: false,
+        isFirst: true,
+        lastCount: 0,
+      });
+    }
+  }, [userId, isFocused, finalPostData, onFetchHomeHandler]); // Use finalPostData
+
+  useEffect(() => {
+    if (isFocused && userId) {
+      setScrollViewRef(scrollViewRef);
+      checkPermission();
+    }
+
+    const unsubscribe = messaging().onMessage(async (remoteMessage) => {
+      if (remoteMessage?.data?.type === "kyc_verified" && isFocused) {
+        dispatch(
+          //@ts-ignore
+          fetchMyProfileDetails({
+            userId: userId,
+          })
+        );
       }
     });
 
-    return Array.from(uniqueMap.values());
-  }, [Selectedtab, trendingPostResponse, homePostResponse]);
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        if (keyboardVisible) {
+          Keyboard.dismiss();
+          return true;
+        }
+        if (uiState.commentIndex == -1) {
+          onCommentRef.current?.close();
+          return true;
+        }
+        
+        Alert.alert("Hold on!", "Are you sure you want to exit?", [
+          { text: "Cancel", style: "cancel" },
+          { text: "Exit", onPress: () => BackHandler.exitApp() },
+        ]);
+        
+        return true;
+      }
+    );
 
-  const [refreshing, setRefreshing] = useState(false);
+    return () => {
+      unsubscribe();
+      backHandler.remove();
+      cleanup();
+    };
+  }, [keyboardVisible, uiState.commentIndex, isFocused, userId, setScrollViewRef, checkPermission, dispatch, cleanup]);
 
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    if (Selectedtab === 1) {
+  useEffect(() => {
+    const fetchRefData = async () => {
+      try {
+        if (refreshHome && isFocused) {
+          await Promise.all([
+            onFetchHomeHandler({
+              isLoadMore: false,
+              isFirst: false,
+              lastCount: 0,
+            }),
+          ]);
+        }
+      } catch (error) {
+        console.error("Error fetching Ref data:", error);
+      }
+    };
+    fetchRefData();
+    MyCommunities();
+  }, [refreshHome, isFocused, onFetchHomeHandler, MyCommunities]);
+
+  useEffect(() => {
+    if (userId && isFocused) {
+      //@ts-ignore
+      dispatch(DynamicContentStatusReq({ user_id: userId }));
+    }
+  }, [userId, isFocused, dispatch]);
+
+  useEffect(() => {
+    if (uiState.headerVisible) {
+      Animated.timing(headerAnimation, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: false,
+      }).start();
+    } else {
+      Animated.timing(headerAnimation, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [uiState.headerVisible, headerAnimation]);
+
+  useEffect(() => {
+    if (!userDetailsData?.success) return;
+
+    const userData = userDetailsData.data;
+    const kycStatus = userData?.kyc_details?.status;
+
+    dispatch(setUserData(userData));
+
+    const shouldShowKyc =
+      !userData?.kyc_details || [0, -1, 3, 6].includes(kycStatus);
+
+    setUiState(prev => ({ ...prev, showKycBtn: shouldShowKyc }));
+
+    if (userData?.profile_pic) setProfileImage(userData?.profile_pic);
+
+    const [firstName = "", lastName = ""] =
+      userData.full_name?.split(" ") || [];
+    setFirstNameLocal({ first: firstName });
+    setLastNameLocal({ last: lastName });
+  }, [userDetailsData, dispatch]);
+
+  useEffect(() => {
+    if (uiState.headerVisible) {
+      translateX.value = withSpring(isFlex ? 26 : 3);
+    }
+  }, [uiState.headerVisible, isFlex, translateX]);
+
+  useEffect(() => {
+    if (userDetailsData?.data?.id == undefined) {
+      //@ts-ignore
+      dispatch(fetchMyProfileDetails({ userId: userId }));
       dispatch(
         //@ts-ignore
-        onFetchTrendingPost({
-          userId: userId,
-          lastCount: 0,
-        })
+        onFetchMyUserFeeds({ userId, profileId: userId, lastCount: 0 })
       );
-      setRefreshing(false);
-    } else {
-      var newPostData: any = await dispatch(
-        // @ts-ignore
-        onFetchHomePost({
-          userId: userId,
-          lastCount: 0,
-          limit_count: 10,
-        })
-      );
-
-      if (newPostData?.payload?.data?.length > 0) {
-        setRefreshing(false);
-        dispatch(setHomePostSlice(newPostData?.payload?.data || []));
-        setPrefsValue(
-          "homePostData",
-          JSON.stringify(newPostData?.payload?.data || [])
-        );
-      } else {
-        setRefreshing(false);
-      }
-      MyCommunities();
     }
-  }, []);
+  }, [userDetailsData, userId, dispatch]);
 
-  // Add this new function to track visible items
-  const onViewableItemsChanged = useCallback(({ viewableItems }: any) => {
-    if (viewableItems.length === 0) return;
-
-    // Get the index of the last visible item
-    const lastVisibleIndex = Math.max(
-      ...viewableItems.map((item) => item.index || 0)
-    );
-    const postsToTriggerAt = Math.floor(lastVisibleIndex % 16);
-    if (postsToTriggerAt == 0 && lastVisibleIndex > 10) {
-      Newfeed();
+  useEffect(() => {
+    const newCombinedData = [
+      ...homePostResponse.UpdatedData,
+      ...homePostNextResponse.data,
+    ];
+    if (!uiState.headerVisible && newCombinedData.length == 10) {
+      fetchNextPost();
     }
-  }, []);
+  }, [uiState.headerVisible, homePostResponse.UpdatedData, homePostNextResponse.data, fetchNextPost]);
 
-  const uploadPostAgain = () => {
-    onSubmitPostHandler({ isCreatePost: false });
-  }
-  const renderHome = useCallback(() => {
-    return (
-      <>
-        <RenderHomeView
-          Selectedtab={Selectedtab}
-          setSelectedTab={setSelectedTab}
-          homePostResponse={homePostResponse}
-          postData={postData}
-          isNextPostLoading={isNextPostLoading}
-          getNewPost={getNewPost}
-          refresh_Button={refresh_Button}
-          newPostCount={newPostCount}
-          onRefreshPostData={onRefreshPostData}
-          renderHomeItem={renderHomeItem}
-          scrollViewRef={scrollViewRef}
-          handleScroll={handleScroll}
-          handleScrollButton={handleScrollButton}
-          onEndReached={debouncedEndReached}
-          refreshing={refreshing}
-          handleRefresh={handleRefresh}
-          //@ts-ignore
-          onViewableItemsChanged={onViewableItemsChanged}
-          progressValue={submitPostResponse?.progress}
-          progressVisible={submitPostResponse?.loading}
-          isCreatePostFailed={submitPostResponse?.isFailed}
-          uploadPostAgain={uploadPostAgain}
-          communityData={AllGroupList?.data || []}
-        />
-      </>
-    );
-  }, [
+  // console.log("communityData>>", AllGroupList?.data);
+  // Memoized render function - using finalPostData instead of fallbackPostData
+  const renderHome = useMemo(() => (
+    <RenderHomeView
+      Selectedtab={Selectedtab}
+      setSelectedTab={setSelectedTab}
+      homePostResponse={homePostResponse}
+      postData={finalPostData} // Use finalPostData instead of fallbackPostData
+      isNextPostLoading={uiState.isNextPostLoading}
+      getNewPost={getNewPost}
+      refresh_Button={refresh_Button}
+      newPostCount={newPostCount}
+      onRefreshPostData={onRefreshPostData}
+      renderHomeItem={renderHomeItem}
+      scrollViewRef={scrollViewRef}
+      handleScroll={handleScroll}
+      handleScrollButton={handleScrollButton}
+      onEndReached={debouncedEndReached}
+      refreshing={uiState.refreshing}
+      handleRefresh={handleRefresh}
+      //@ts-ignore
+      onViewableItemsChanged={onViewableItemsChanged}
+      progressValue={submitPostResponse?.progress}
+      progressVisible={submitPostResponse?.loading}
+      isCreatePostFailed={submitPostResponse?.isFailed}
+      uploadPostAgain={uploadPostAgain}
+      communityData={AllGroupList?.data}
+    />
+  ), [
     Selectedtab,
-    postData,
+    setSelectedTab,
+    homePostResponse,
+    finalPostData, // Use finalPostData instead of fallbackPostData
+    uiState.isNextPostLoading,
+    getNewPost,
+    refresh_Button,
     newPostCount,
-    isNextPostLoading,
+    onRefreshPostData,
+    renderHomeItem,
+    scrollViewRef,
+    handleScroll,
+    handleScrollButton,
     debouncedEndReached,
-    submitPostResponse,
+    uiState.refreshing,
+    handleRefresh,
+    onViewableItemsChanged,
+    submitPostResponse?.progress,
+    submitPostResponse?.loading,
+    submitPostResponse?.isFailed,
+    uploadPostAgain,
+    AllGroupList,
   ]);
 
-  const onRefreshPostData = useCallback((newCount) => {
-    dispatch(resetNewFeedCount());
-    setRefresh_Button(false);
-    scrollToTop();
-    if (newCount && newCount > 0) {
-      Promise.all([OnRefreshHandlerHome()]).catch((error) =>
-        console.error("Error in onRefreshPostData:", error)
-      );
-    }
-    MyCommunities();
-  }, []);
-
-  const renderGroupView = () => {
-    return (
-      <View style={{ ...Styles.mainContainer }}>
-        {/* <CustomGroupTab onPress={setIsGroup} isSelected={isGroup} />
-        <GroupList isGroup={isGroup} /> */}
-      </View>
-    );
-  };
-  const translateX = useSharedValue(isFlex ? 18 : 0);
-
-  const onKycPress = async () => {
-    const kycData = userDetailsData?.data?.kyc_details || {};
-    const type = userDetailsData?.data?.type || 0;
-    const contact = isLoginMobile === 0 ? kycData.temp_email : kycData.phone;
-    const kycStatus =
-      userDetailsData?.data?.kyc_details?.status ||
-      userDetailsData?.data?.kyc_status;
-    const stepStatus = Number(userDetailsData?.data?.kyc_details?.finished_step);
-    const stepType = userDetailsData?.data?.kyc_details?.identification_type;
-    const handleKycCompletion = async (path, params = {}) => {
-      onSetShowKycModalStore(false);
-      await storeUserKycStatus(1);
-      setIsVerified(1);
-      router.push({ pathname: path, params });
-    };
-    onSetUserFromType(stepType === "google_auth" ? "google" : stepType);
-    const path = isLoginMobile === 0 ? "/SelectSocialkyc" : "/KycOnboardHoc";
-    if (userDetailsData?.data?.kyc_details?.id) {
-      console.log("kycStatus", kycStatus);
-      switch (kycStatus) {
-        case 0: // Need OTP Verification
-          onSetUserFromType(stepType === "google_auth" ? "google" : stepType);
-          console.log("kycStatus", kycStatus, stepStatus);
-          if (stepStatus === 1 || stepStatus === 2) {
-            router.push({
-              pathname: "/KycOnboardHoc",
-              params: { kycStepData: stepStatus },
-            });
-          } else {
-            console.log("contact", userId, contact, stepStatus);
-            //@ts-ignore
-            dispatch(onKycSendOtp({ userId, contact }));
-            router.push({
-                          params: {
-                            contact: contact,
-                            countryCode: "+91",
-                            userId: userId,
-                            isMobile: 1,
-                            login_type: 1,
-                            isKyc: "true",
-                          },
-                          pathname: "/VerifyKycOtpScreen",
-                        });
-          }
-          break;
-
-        case 6: // Onboarding
-          router.push("/KycOnboardHoc");
-          break;
-
-        case 2: // Pending
-          await handleKycCompletion("/SuccessfullVerificationModal", {
-            status: "pending",
-          });
-          break;
-
-        case -1: // Declined
-            router.push({
-              pathname: path,
-              params: { kycStepData: 0 },
-            });
-          break;
-
-        case 3: // Rejected
-          router.push({
-            pathname: "/SuccessfullVerificationModal",
-            params: { status: "reject" },
-          });
-          break;
-
-        case 5: // PAN Pending
-          await handleKycCompletion("/SuccessfullVerificationModal", {
-            status: "panPending",
-          });
-          break;
-
-        case 1: // Verified
-          await handleKycCompletion("/DashboardScreen");
-          break;
-
-        case 4: // Selfie / Additional Step
-          await handleKycCompletion("/KycOnboardHoc", {
-            kycStepData: userDetailsData?.data?.kyc_details?.ask_profile ? 6 : 5,
-            type,
-          });
-          break;
-        default:
-          router.replace("/DashboardScreen");
-      }
-    } else {
-      // Fallback if not successful → Step-based handling
-      let kycStepData = 0;
-      if (stepStatus === 1) {
-        kycStepData = 1;
-      } else if (stepStatus === 2) {
-        kycStepData = stepType === "event" ? 3 : 2;
-      }
-
-      const stepParams = { kycStepData, type };
-
-      const path = isLoginMobile === 0 ? "/SelectSocialkyc" : "/KycOnboardHoc";
-      console.log("stepParams", stepParams);
-      router.push({ pathname: path, params: stepParams });
-    }
-  };
-
-
-  const deletePostHandler = useCallback(async () => {
-    setDeletePostModal(false);
-    var deletePostData: any = await dispatch(
-      //@ts-ignore
-      onDeletePost({ post_id: postId, user_id: userId })
-    );
-
-    if (deletePostData?.payload?.success) {
-      updateDeletePostModal(postId);
-    }
-  }, [postId, userId, updateDeletePostModal]);
-
-
-  const handleOnPress = () => {
-    // if(isComment){
-    //   setIsComment(false);
-    // }
-  };
-
-const onChangeSheetIndex = (index: number) => {
-  setCommentIndex(index);
-  if(index == -1){
-    setIsComment(false);
-  }
-}
   return (
-    <ViewWrapper onPress={handleOnPress} isBottomTab={true}>
-
+    <ViewWrapper onPress={() => {}} isBottomTab={true}>
       <View style={Styles.container}>
-        {headerVisible && (
+        {uiState.headerVisible && (
           <DashboardHeader
             profileImage={userData?.data?.profile_pic || profileImage || ""}
             onToggle={onToggle}
             isflex={isFlex}
-            modalShown={modalShown}
-            setModalShown={setModalShown} // Pass to header
+            modalShown={uiState.modalShown}
+            setModalShown={(shown) => setUiState(prev => ({ ...prev, modalShown: shown }))}
             userId={userId}
           />
         )}
 
         <AppUpdateModal
           visible={updateAvailable}
-          onSkip={()=>{
-            logEvent("skip_update",{
+          onSkip={() => {
+            logEvent("skip_update", {
               version: version,
             });
-            onPressSkip()}}
-          onUpdate={()=>{
-            logEvent("update_app",{
+            onPressSkip();
+          }}
+          onUpdate={() => {
+            logEvent("update_app", {
               version: version,
             });
-            onPressUpdateHandler()}}
+            onPressUpdateHandler();
+          }}
           isForceUpdate={force_update}
           newVersion={version}
         />
 
-        {/* Step Modal */}
-        {/* {isFlex ? renderHome() : renderGroupView()} */}
-        {renderHome()}
+        {renderHome}
       </View>
 
-      {showKycBtn && (
+      {uiState.showKycBtn && (
         <KycButton
-          setShowKycBtn={setShowKycBtn}
-          onPress={() => {
-            onKycPress();
-          }}
+          setShowKycBtn={(show) => setUiState(prev => ({ ...prev, showKycBtn: show }))}
+          onPress={onKycPress}
         />
       )}
 
@@ -970,20 +1098,18 @@ const onChangeSheetIndex = (index: number) => {
       />
 
       {dynamiContentStatus?.data?.status == 1 && (
-        <DynamicContentModal onPressModal={() => {}}  onPress={()=>onKycPress()} />
+        <DynamicContentModal onPressModal={() => {}} onPress={onKycPress} />
       )}
 
       <NotificationPermissionModal
-        visible={isModalVisible}
+        visible={uiState.isModalVisible}
         onClose={() => {
           AsyncStorage.setItem("isFirst", "true");
           setPrefsValue("isFirst", "true");
           dispatch(setIsFirstTime(true));
-          setIsModalVisible(false);
+          setUiState(prev => ({ ...prev, isModalVisible: false }));
         }}
-        allowPermission={() => {
-          askNotificationPermission();
-        }}
+        allowPermission={askNotificationPermission}
       />
 
       <Modal
@@ -998,21 +1124,21 @@ const onChangeSheetIndex = (index: number) => {
         />
       </Modal>
 
-       <CommentsBottomSheet
-              onOpenSheet={onCommentRef}
-              commentData={commentData}
-              screenName="Home"
-              onPress={(id) => {
-                onCommentRef.current.close();
-                router.push({
-                  pathname: "/profile/[id]",
-                  params: { id: id, isProfile: "false" },
-                });
-              }}
-              setIndex={onChangeSheetIndex}
-            />
-     
+      <CommentsBottomSheet
+        onOpenSheet={onCommentRef}
+        commentData={commentData}
+        screenName="Home"
+        onPress={(id) => {
+          onCommentRef.current?.close();
+          router.push({
+            pathname: "/profile/[id]",
+            params: { id: id, isProfile: "false" },
+          });
+        }}
+        setIndex={onChangeSheetIndex}
+      />
     </ViewWrapper>
   );
 };
+
 export default DashboardScreen;

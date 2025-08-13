@@ -17,6 +17,9 @@ const homePostNextSlice = createSlice({
 setIsHomeNextLoading:(state,action)=>{
   state.isLoaded=action.payload;
   },
+setHomeNextPostData:(state,action)=>{
+  state.data=action.payload;
+  },
   },
   extraReducers: (builder) => {
     builder
@@ -42,5 +45,5 @@ setIsHomeNextLoading:(state,action)=>{
 });
 
 
-export const {setIsHomeNextLoading }=homePostNextSlice.actions
+export const {setIsHomeNextLoading,setHomeNextPostData }=homePostNextSlice.actions
 export default homePostNextSlice.reducer;

@@ -126,7 +126,6 @@ const GroupSubgroupComponent = ({
 
   // Trigger animations when data is ready
   useEffect(() => {
-    console.log("GroupSubgroupComponent mounted with isLoading:", isLoading);
     if (group && !isLoading && !hasAnimated) {
       startAnimations();
       setHasAnimated(true); // Mark that animation has run

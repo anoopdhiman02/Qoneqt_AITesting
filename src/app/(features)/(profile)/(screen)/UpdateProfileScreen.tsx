@@ -139,7 +139,7 @@ const UpdateProfileScreen = () => {
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           keyboardVerticalOffset={80} // Adjust based on your header height
         >
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView showsVerticalScrollIndicator={false} scrollEnabled={selectedTab != 2}>
             <View
               style={{
                 flexDirection: "row",
@@ -158,7 +158,7 @@ const UpdateProfileScreen = () => {
                 />
               ))}
             </View>
-            <View style={{ height: (height * 78) / 100, marginTop: 10 }}>
+            <View style={{ height: height * 0.78, marginTop: 10 }}>
               {selectedTab === 0 && (
                 <BasicInfoComponent
                   fName={params?.firstName}

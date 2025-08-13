@@ -3,7 +3,6 @@ import { BASE_GO_URL } from "../../../utils/constants";
 import axiosInstance from "@/utils/axiosInstance";
 import { ENDPOINTS } from "@/utils/endPoints";
 import { Platform } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface submitBasicDetailsPayload {
   userId: string | number;
@@ -72,13 +71,12 @@ export const kycBasicDetails = createAsyncThunk(
       url: `${BASE_GO_URL}${ENDPOINTS.KYC_BASIC_INO}`,
       data: formData,
     };
-    var token = await AsyncStorage.getItem("acc_token");
-    console.log("options", JSON.stringify(options), token);
+
     try {
       const response = await axiosInstance.request(options);
       return response.data;
     } catch (error) {
-      console.error("Error KYC_BASIC_INO:", JSON.stringify(error));
+      console.log("Error KYC_BASIC_INO:", JSON.stringify(error));
       return error
     }
   }

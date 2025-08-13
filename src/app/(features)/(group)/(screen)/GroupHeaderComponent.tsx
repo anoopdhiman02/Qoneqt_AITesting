@@ -16,6 +16,7 @@ import { router } from "expo-router";
 import { TextRenderContent } from "@/components/TextRenderContent";
 import { htmlTagRemove } from "@/utils/htmlTagRemove";
 import { formatMemberCount } from "@/utils/ImageHelper";
+import RichText from "@/utils/RichText";
 
 const GroupHeaderComponent = ({
   icon,
@@ -94,9 +95,16 @@ const GroupHeaderComponent = ({
               // onTextLayout={(e) =>
               //   setShowReadMore(e.nativeEvent.lines.length > 2)
               // }
-              style={styles.descriptionText}
             >
-              {groupDesc}
+              {groupDesc != "" && groupDesc != null && (
+                <RichText
+                  text={groupDesc}
+                  mentions={[]}
+                  styles={{
+                    normalText: styles.descriptionText,
+                  }}
+                />
+              )}
             </Text>
           </View>
 

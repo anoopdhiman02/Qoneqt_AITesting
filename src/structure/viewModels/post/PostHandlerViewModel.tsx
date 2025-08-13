@@ -32,7 +32,9 @@ const usePostHandlerViewModel = () => {
     })
     var likeData = await Dispatch(onPostLike({ postId: postId, liked: liked, userId: userId,reaction:1 }));
     if (!likeData.payload?.success) {
-      showToast({type:"error",text1:likeData.payload?.message});
+      if(likeData.payload?.message != "Already liked"){
+        showToast({type:"error",text1:likeData.payload?.message});
+      }
     }
   };
 

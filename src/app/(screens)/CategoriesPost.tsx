@@ -10,6 +10,7 @@ import {
   Modal,
   Keyboard,
   BackHandler,
+  FlatList,
 } from "react-native";
 import BottomSheet from "@gorhom/bottom-sheet";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -31,8 +32,13 @@ import { globalColors } from "@/assets/GlobalColors";
 import DeletePostModal from "@/components/modal/DeletePostModal";
 import { commentLoading } from "@/redux/slice/post/FetchCommentsSlice";
 import { shallowEqual, useDispatch, useSelector } from "react-redux";
-import { useScreenTracking } from "@/customHooks/useAnalytics";
+import { logEvent, useScreenTracking } from "@/customHooks/useAnalytics";
 import useKeyboardVisible from "../hooks/useKeyboardVisible";
+import index from '../../components/atom/BottomTab/index';
+import HomePostContainer from "@/components/element/HomePostContainer";
+import TrackPlayer from "react-native-track-player";
+import { upgradePostData } from "@/redux/slice/post/PostDetailSlice";
+import { useAppSelector } from "@/utils/Hooks";
 
 const { width } = Dimensions.get("window");
 
@@ -64,6 +70,7 @@ const CategoriesPost = () => {
   const dispatch = useDispatch();
   const [commentIndex, setCommentIndex] = useState(-1);
   const keyboardVisible = useKeyboardVisible();
+  const categoryData = useAppSelector((state) => state.CategoryPostResponse);
 
   const deletePostHandler = () => {
     setIsDeleteModal(false);
@@ -76,7 +83,7 @@ const CategoriesPost = () => {
     }
 
     timeoutRef.current = setTimeout(() => {
-      if (!isLoading) {
+      if (!isLoading && categoryData?.updatedData.length >4) {
         setIsLoading(true);
         onFetchCategoryHandler({ catId: categoryId });
         setTimeout(() => setIsLoading(false), 1000);
@@ -84,19 +91,6 @@ const CategoriesPost = () => {
     }, 300);
   }, [isLoading]);
 
-  const handleScroll = useCallback(
-    ({ nativeEvent }: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
-      const paddingToBottom = 20;
-      if (
-        layoutMeasurement.height + contentOffset.y >=
-        contentSize.height - paddingToBottom
-      ) {
-        debouncedEndReached();
-      }
-    },
-    [debouncedEndReached]
-  );
 
   const onPressCommentHandler = (postId: any, userId: any) => {
     dispatch(commentLoading(true));
@@ -144,19 +138,12 @@ const CategoriesPost = () => {
   };
   const onPressBlockOption = () => {
     profileOptionRef.current.close();
-    // if(isBlock){
-    //   onPressBlockHandler({ profileId: reportUserDetails?.userId, isBlock: 0 });
-    //   setIsBlock(false);
-    // }
-    // else {
     BlockUserRef.current.expand();
-    // }
   };
 
   const onSubmitBlockHandler = ({ profileId, isBlock }) => {
     BlockUserRef.current.close();
     onPressBlockHandler({ profileId: profileId, isBlock: isBlock });
-    // setIsBlock(true);
   };
 
   const onPressPostOption = ({ userData, groupData }) => {
@@ -176,61 +163,100 @@ const CategoriesPost = () => {
   const onChangeSheetIndex = (index: number) => {
     setCommentIndex(index);
   };
+
+  const onPressPost = (data: any) => {
+      logEvent("post_click", {
+        post_id: data?.id,
+        type: "category",
+      });
+  
+      if (data.file_type == "video") {
+        TrackPlayer.stop();
+      }
+  
+      dispatch(upgradePostData(data));
+      router.push({
+        pathname: "/post/[id]",
+        params: {
+          id: data?.id,
+          Type: "categories",
+          isNotification: "here",
+          categoryName: data?.loop_group?.category.category_name,
+        },
+      });
+    };
+
+  const renderItem = useCallback(({item, index}) =>{
+if(categoryPostLoading && categoryData?.updatedData.length === 0){
+    return(
+    <View
+      key={index}
+      style={{
+        width: width ,
+        height: (width * 80 * (402 / 308)) / 100,
+        marginHorizontal: 10,
+        marginBottom: 20,
+      }}
+    >
+      <PostLoaderComponent />
+    </View>)
+}
+else {
+    return (<HomePostContainer
+      Type={"categories"}
+      onPressComment={(postId) => onPressCommentHandler(postId,userId )}
+      onPressPostOption={(data) => onPressPostOption(data)}
+      data={item}
+      index={index}
+      key={index}
+      userInfo={userDetailsData?.data}
+      postPress={() => {
+        onPressPost(item);
+      }}
+    />
+  )
+}}, [categoryData?.updatedData, categoryPostLoading, onPressCommentHandler, onPressPost, onPressPostOption, userDetailsData]);
+
+const ListFooterComponent = () => {
+  if(categoryData?.updatedData.length != 0 && categoryPostLoading){
+    return (
+      <View
+      style={{
+        alignItems: "center",
+        justifyContent: "center",
+        paddingVertical: 20,
+      }}
+    >
+      <ActivityIndicator
+        size="large"
+        color={globalColors.neutral_white[100]}
+      />
+    </View>
+    );
+  }
+  return (
+    <View
+      style={{
+        height: 20,
+      }}
+    />
+  );
+};
   return (
     <ViewWrapper>
       <GoBackNavigation header="Category Posts" isDeepLink={true} />
-
-      <ScrollView
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        showsVerticalScrollIndicator={false}
-      >
-        {categoryPostLoading && categoryPostData.length === 0 ? (
-          <View style={{ flexDirection: "column" }}>
-            {[...Array(5)].map((_, index) => (
-              <View
-                key={index}
-                style={{
-                  width: (width * 80) / 100,
-                  height: (width * 80 * (402 / 308)) / 100,
-                  marginHorizontal: 10,
-                  marginBottom: 20,
-                }}
-              >
-                <PostLoaderComponent />
-              </View>
-            ))}
-          </View>
-        ) : (
-          <View>
-            <HomePostComponent
-              type={"categories"}
-              onPressCommentHandler={(postId, userId) =>
-                onPressCommentHandler(postId, userId)
-              }
-              HomePostData={categoryPostData}
-              onPressPostOption={(data) =>
-                onPressPostOption({ userData: data.userData, groupData: data.groupData })
-              }
-              userInfo={userDetailsData?.data}
-            />
-            {categoryPostData.length != 0 && categoryPostLoading && (
-              <View
-                style={{
-                  alignItems: "center",
-                  justifyContent: "center",
-                  paddingVertical: 20,
-                }}
-              >
-                <ActivityIndicator
-                  size="large"
-                  color={globalColors.neutral_white[100]}
-                />
-              </View>
-            )}
-          </View>
-        )}
-      </ScrollView>
+    <FlatList
+    style={{width: "100%"}}
+    scrollEventThrottle={16}
+    bounces={false}
+    showsVerticalScrollIndicator={false}
+    data={(categoryPostLoading && categoryData?.updatedData.length === 0) ? [...Array(5)] : categoryData?.updatedData}
+    renderItem={renderItem}
+    keyExtractor={(item, index) => index.toString()}
+    ListFooterComponent={ListFooterComponent}
+    onEndReached={debouncedEndReached}
+    onEndReachedThreshold={0.3}
+    />
       <CommentsBottomSheet
         onOpenSheet={CommentSheetRef}
         commentData={commentData}

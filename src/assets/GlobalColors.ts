@@ -5,6 +5,7 @@ export const globalColors = {
   darkOrchid: "#8954F6",
   warmPink: "#E27AF8",
   lightPink: "#E0ADF4",
+  lightShadeNew: "#a78bfa",
 
   // Shades and Tints
   slateBlueShade20: "#432AB6",
@@ -48,8 +49,8 @@ export const globalColors = {
   neutral10: "#E6E5E8",
   neutral11: "#8e8e93",
   neutralWhite: "#FFFFFF",
-  neutral_white:{
-    "100": '#e7e9ea',
+  neutral_white: {
+    "100": "#e7e9ea",
     "200": "#e8eded",
     "300": "#717892",
     "400": "#c1c1c126",
@@ -87,4 +88,8 @@ export const globalColors = {
   warning: "#FF3434",
   success: "#00CA08",
   pendingInProgress: "#EDBD12",
+
+  //Subgroup Background
+  subgroupBG: "rgba(116, 84, 244, 0.05)",
+  subgroupBorder: "rgba(116, 84, 244, 0.1)",
 };

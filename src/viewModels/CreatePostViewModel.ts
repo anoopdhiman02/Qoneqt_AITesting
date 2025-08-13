@@ -13,13 +13,13 @@ import DocumentPicker from "react-native-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { Image as CompressImage } from "react-native-compressor";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
-import { Image, Platform } from "react-native";
+import { Image, InteractionManager, Platform } from "react-native";
 
 import { showToast } from "@/components/atom/ToastMessageComponent";
 import { router } from "expo-router";
 import { searchGroupList } from "@/redux/reducer/group/SearchGroupList";
 import { useAppStore } from "@/zustand/zustandStore";
-import { checkCameraPermission, compressedImage } from "@/utils/ImageHelper";
+import { calculateHeight, checkCameraPermission, compressedImage } from "@/utils/ImageHelper";
 import { useAudioStore } from "@/zustand/AudioPlayerStore";
 import {
   updateFailed,
@@ -1021,15 +1021,28 @@ const useCreatePostViewModel = () => {
     if(postValue.id){
       
       dispatch(updateIsUpdated(true));
+      var newData = await Promise.all([newPost]?.map(async (item) => {
+                if(item?.file_type == "image"){
+                  return {
+                    ...item,
+                    display_height: (await Promise.all(calculateHeight(item)))
+                  };
+                }
+                return {
+                  ...item
+                };
+              }));
     const userData = Array.isArray(postDetailResponse?.updatedData)
       ? postDetailResponse.updatedData.length > 0 ? postDetailResponse.updatedData[0].post_by ? postDetailResponse.updatedData : [] : []
       : [];
     const localData = getPrefsValue("homePostData");
     const localPostData = JSON.parse(localData || "[]");
-    const updatedPostData = updatePostFeed(localPostData, newPost)
+    const updatedPostData = updatePostFeed(localPostData, newData[0])
+    InteractionManager.runAfterInteractions(() => {
     setPrefsValue("homePostData", JSON.stringify(updatedPostData));
-    dispatch(setHomePostSlice(updatePostFeed(HomePostResponse.UpdatedData, newPost)));
-    dispatch(setMyUserFeedData(updatePostFeed(userData, newPost)));
+    });
+    dispatch(setHomePostSlice(updatePostFeed(HomePostResponse.UpdatedData, newData[0])));
+    dispatch(setMyUserFeedData(updatePostFeed(userData, newData[0])));
     var deletePostData: any = await dispatch(
       //@ts-ignore
       onDeletePost({ post_id: postValue.id, user_id: userId })
@@ -1042,11 +1055,13 @@ const useCreatePostViewModel = () => {
       : [];
     const localData = getPrefsValue("homePostData");
     const localPostData = JSON.parse(localData || "[]");
-    const updatedPostData = [newPost, ...localPostData];
+    const updatedPostData = [...newData, ...localPostData];
+    InteractionManager.runAfterInteractions(() => {
     setPrefsValue("homePostData", JSON.stringify(updatedPostData));
-    dispatch(setHomePostSlice([newPost, ...HomePostResponse.UpdatedData]));
+    });
+    dispatch(setHomePostSlice([newData[0], ...HomePostResponse.UpdatedData]));
     
-    dispatch(setMyUserFeedData([newPost, ...userData]));
+    dispatch(setMyUserFeedData([newData[0], ...userData]));
 
     const updatedProfileDatas = {
       data: {

@@ -19,7 +19,6 @@ export const onFetchPostDetail = createAsyncThunk(
       url: `${BASE_GO_URL}${ENDPOINTS.Post_Details}${postId}`,
       data: { user_id: userId, fromApp: 1 },
     };
-    console.log("options", options);
 
     try {
       const response = await axiosInstance.request(options);

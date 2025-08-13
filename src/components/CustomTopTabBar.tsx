@@ -14,24 +14,26 @@ const CustomTopTabBar: FC<CustomTopTabBarProps> = ({
   tabData,
 }) => {
   return (
-      <View
-        style={styles.container}
-      >
-        {tabData?.map((item: any, index: number) => (
-          <TouchableOpacity
-            key={index}
-            onPress={() => {
-              setSelectedTab(index);
-            }}
-            style={{...styles.tabItem, borderBottomWidth: selectedTab === index ? 5 : 0, borderBottomColor: selectedTab === index ? globalColors.warmPinkShade40 : 'transparent'}}>
-            <Text
-              style={styles.tabText}
-            >
-              {item}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+    <View style={styles.container}>
+      {tabData?.map((item: any, index: number) => (
+        <TouchableOpacity
+          key={index}
+          onPress={() => {
+            setSelectedTab(index);
+          }}
+          style={{
+            ...styles.tabItem,
+            borderBottomWidth: selectedTab === index ? 5 : 0,
+            borderBottomColor:
+              selectedTab === index
+                ? globalColors.slateBlueTint20
+                : "transparent",
+          }}
+        >
+          <Text style={styles.tabText}>{item}</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
   );
 };
 

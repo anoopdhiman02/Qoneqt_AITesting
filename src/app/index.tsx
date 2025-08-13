@@ -6,6 +6,7 @@ import {
   Dimensions,
   ActivityIndicator,
   AppState,
+  DeviceEventEmitter,
 } from "react-native";
 import React, { useCallback, useEffect, useState, useRef } from "react";
 import { router, SplashScreen } from "expo-router";
@@ -45,7 +46,10 @@ import TrackPlayer, { AppKilledPlaybackBehavior, Capability, State } from 'react
 import { setTokens } from "@/localDB/TokenManager";
 import useDeviceId from "./hooks/useDeviceId";
 import { handleNotificationPress } from '@/utils/notificationRedirect';
+import { Audio, Video } from 'expo-av';
 const { width, height } = Dimensions.get("window");
+import {useImageCacheManager} from '@/customHooks/useImageCacheManager';
+import { clearImageDimensionsCache } from "@/utils/ImageHelper";
 
 TrackPlayer.registerPlaybackService(() => TrackPlayerService);
 
@@ -130,6 +134,7 @@ const initializeTrackPlayer = async () => {
 };
 
 const index = () => {
+  useImageCacheManager();
   const dispatch = useDispatch();
   const fontsLoaded = useLoadFonts();
   const [isInitialized, setIsInitialized] = useState(false);
@@ -141,6 +146,7 @@ const index = () => {
  const initializationRef = useRef(false);
  const dynamicLinkUnsubscribeRef = useRef(null);
  const trackPlayerInitRef = useRef(false);
+ const notificationProcessedRef: any = useRef("");
  // Memoize SDK configuration
  const configureSDKs = useCallback(async () => {
   if (initializationRef.current) return;
@@ -159,14 +165,46 @@ const index = () => {
   }
 }, [dispatch]);
 
+
+
+
 // Configure SDKs once
 useEffect(() => {
   configureSDKs();
 }, [configureSDKs]);
 
+const configureAudioSession = async () => {
+  try {
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      staysActiveInBackground: false,
+      playsInSilentModeIOS: true,
+      shouldDuckAndroid: true,
+      playThroughEarpieceAndroid: false,
+    });
+  } catch (error) {
+    console.warn('Failed to configure audio session:', error);
+  }
+};
+
+
+useEffect(() => {
+  const memoryWarningListener = DeviceEventEmitter.addListener(
+    'memoryWarning',
+    () => {
+      console.log('Memory warning received, clearing image cache');
+      clearImageDimensionsCache();
+    }
+  );
+
+  // storage.hydrate(["isFirst", "homePostData"]).catch(() => {});
+
+  return () => memoryWarningListener.remove();
+}, []);
 
   // Initialize TrackPlayer once
   useEffect(() => {
+    configureAudioSession();
     const initTrackPlayer = async () => {
       if (!trackPlayerInitRef.current) {
         await initializeTrackPlayer();
@@ -299,7 +337,6 @@ const handleDynamicLink = useCallback(async (link) => {
         data: remoteMessage?.data,
       });
       handleNotificationPress(remoteMessage?.data);
-      // router.replace("/DashboardScreen");
     } catch (error) {
       console.error("Notification redirect error:", error);
       router.replace("/DashboardScreen");
@@ -313,15 +350,11 @@ const handleDynamicLink = useCallback(async (link) => {
       const [
         userData,
         userDetails,
-        kycStatus,
-        loginType,
         homePostsData,
         notificationData,
       ] = await Promise.all([
         getUserData(),
         getUserDeatils(),
-        getStoreUserKycStatus(),
-        AsyncStorage.getItem("user_login_type"),
         getPrefsValue("homePostData"),
         getPrefsValue("message"),
       ]);
@@ -347,11 +380,15 @@ const handleDynamicLink = useCallback(async (link) => {
       if (notificationData) {
         try {
           const parsedNotification = JSON.parse(notificationData);
-          console.log("parsedNotification", parsedNotification);
+          if(notificationProcessedRef?.current?.messageId === parsedNotification?.messageId){
+            return;
+          }
+          console.log("parsedNotification", parsedNotification, notificationProcessedRef?.current);
           await handleNotificationRedirect({
             remoteMessage: parsedNotification,
             userData: userDetails?.id,
           });
+          notificationProcessedRef.current = parsedNotification?.messageId;
           return; // Exit early to prevent double navigation
         } catch (error) {
           console.error("Notification handling error:", error);
@@ -365,7 +402,7 @@ const handleDynamicLink = useCallback(async (link) => {
       console.error("Init logged user error:", error);
       router.replace("/DashboardScreen");
     }
-  }, [dispatch, handleNotificationRedirect, setUserId]);
+  }, [handleNotificationRedirect]);
 
   // Main initialization logic
   const prepareAndRedirect = useCallback(async () => {
@@ -398,6 +435,7 @@ const handleDynamicLink = useCallback(async (link) => {
 
       // Navigate based on login status
       if (isLoggedIn === true) {
+        console.log("isLoggedIn", isLoggedIn);
         await initLoggedInUser();
       } else {
         const targetRoute: any = referralCode 

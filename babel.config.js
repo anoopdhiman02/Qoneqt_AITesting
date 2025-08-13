@@ -6,6 +6,7 @@ module.exports = function (api) {
       "@realm/babel-plugin",
       "react-native-reanimated/plugin",
       ["@babel/plugin-proposal-decorators", { legacy: true }],
+    '@babel/plugin-transform-class-static-block',
       // [
       //   // "module-resolver",
       //   {

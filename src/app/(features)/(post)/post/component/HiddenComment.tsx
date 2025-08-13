@@ -11,9 +11,12 @@ interface HiddenCommentProps {
     repliedData: any;
     onPressConfirmHandler: (key: number) => void;
     setRepliedId: (id: number) => void;
+    userId?: string;
 }
 
-const HiddenComment = ({repliedData, onPressConfirmHandler, setRepliedId}: HiddenCommentProps) => {
+const HiddenComment = ({repliedData, onPressConfirmHandler, setRepliedId, userId}: HiddenCommentProps) => {
+  const canDelete = userId == repliedData?.user?.id;
+
   return (
     <View
     style={{
@@ -100,6 +103,7 @@ const HiddenComment = ({repliedData, onPressConfirmHandler, setRepliedId}: Hidde
           {repliedData?.comment}
         </Text>
       </View>
+      {canDelete && (
       <TouchableOpacity
         onPress={() => {
           setRepliedId(repliedData.id);
@@ -113,6 +117,7 @@ const HiddenComment = ({repliedData, onPressConfirmHandler, setRepliedId}: Hidde
           Delete
         </Text>
       </TouchableOpacity>
+      )}
     </View>
   </View>
   )

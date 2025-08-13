@@ -8,6 +8,7 @@ import { fontFamilies } from '@/assets/fonts';
 import HiddenComment from './HiddenComment';
 import RepliesComponent from './RepliesComponent';
 import moment from 'moment';
+import { router } from 'expo-router';
 
 interface CommentRenderItemProps {
     comment: any;
@@ -19,6 +20,8 @@ interface CommentRenderItemProps {
     CommentId: string;
     replyPressHandler: () => void;
     deletePressHandler: () => void;
+    canDelete?: boolean;
+    userId?: string;
 }
 
 const CommentRenderItem: React.FC<CommentRenderItemProps> = ({
@@ -30,7 +33,9 @@ const CommentRenderItem: React.FC<CommentRenderItemProps> = ({
     hasReplies,
     CommentId,
     replyPressHandler,
-    deletePressHandler
+    deletePressHandler,
+    canDelete,
+    userId
 }) => {
   return (
     <View
@@ -38,9 +43,15 @@ const CommentRenderItem: React.FC<CommentRenderItemProps> = ({
               flexDirection: "row",
               alignItems: "flex-start",
               paddingVertical: 10,
+              paddingHorizontal: 10,
             }}
           >
             {comment?.user?.profile_pic?.length > 0 ? (
+              <TouchableOpacity
+                onPress={() => {
+                  router.push(`/profile/${comment?.user?.id}`);
+                }}
+              >
               <Image
                 style={{
                   borderRadius: 30,
@@ -56,6 +67,7 @@ const CommentRenderItem: React.FC<CommentRenderItemProps> = ({
                   uri: ImageUrlConcated(comment?.user?.profile_pic),
                 }}
               />
+              </TouchableOpacity>
             ) : (
               <View
                 style={{
@@ -81,6 +93,9 @@ const CommentRenderItem: React.FC<CommentRenderItemProps> = ({
               >
                 <Text
                   style={{ color: "white", fontSize: 14, fontWeight: "bold" }}
+                  onPress={() => {
+                    router.push(`/profile/${comment?.user?.id}`);
+                  }}
                 >
                   {comment?.user?.full_name}
                 </Text>
@@ -123,7 +138,7 @@ const CommentRenderItem: React.FC<CommentRenderItemProps> = ({
                     </Text>
                   </TouchableOpacity>
                 </View>
-                <View>
+{ canDelete && (
                   <TouchableOpacity
                     onPress={() => {
                         deletePressHandler()
@@ -134,8 +149,7 @@ const CommentRenderItem: React.FC<CommentRenderItemProps> = ({
                     }}
                   >
                     <Text style={{ color: globalColors.neutral8 }}>Delete</Text>
-                  </TouchableOpacity>
-                </View>
+                  </TouchableOpacity>)}
               </View>
 
               {comment?.replies?.map((repliedData, key) => {
@@ -148,6 +162,7 @@ const CommentRenderItem: React.FC<CommentRenderItemProps> = ({
                    repliedData={repliedData}
                    onPressConfirmHandler={onPressConfirmHandler}
                    setRepliedId={setRepliedId}
+                   userId={userId}
                    />
                   )
                 );

@@ -18,41 +18,45 @@ import { trendingUserPost } from "@/redux/slice/home/TrendingPostSlice";
 import { updateCount, upgradePostData } from "@/redux/slice/post/PostDetailSlice";
 import usePostDetailViewModel from "../../(viewPost)/viewModel/PostDetailViewModel";
 import { setMyUserFeedData } from "@/redux/slice/profile/ProfileMyFeedsSlice";
-import { useSelector } from "react-redux";
 import { setPrefsValue, getPrefsValue } from "@/utils/storage";
 import { AllGroupReq } from "@/redux/reducer/group/AllGroups";
+import { calculateHeight } from "@/utils/ImageHelper";
+import { Dimensions, InteractionManager } from "react-native";
+import { setHomeNextPostData } from "@/redux/slice/home/HomePostNextSlice";
+import { updateReactions } from "@/redux/slice/group/GroupFeedsListSlice";
+import { updateCategoryPostData } from "@/redux/slice/home/CategoryPostSlice";
 
+const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 const useHomeViewModel = () => {
   const Dispatch = useAppDispatch();
   const userId = useAppStore((state) => state.userId);
   const id = useIdStore((state) => state.id);
   const setRefreshHome = useAppStore((state) => state.setRefreshHome);
-const refreshHome = useAppStore((state) => state.refreshHome);
   const HomePostResponse = useAppSelector((state) => state.HomePostResponse);
   const { setMyFeedsData } = useMyPostsViewModel();
   const { setPostData } = usePostDetailViewModel();
   const myFeedsListData = useAppSelector((state) => state.myFeedsListData);
   const postDetailData: any = useAppSelector((state) => state.postDetailData);
   const myFeedData = useAppSelector((state) => state.myFeedData);
-
+  const categoryData = useAppSelector((state) => state.CategoryPostResponse);
+const groupFeedsListData: any = useAppSelector(
+    (state) => state.groupFeedsListData
+  );
   const trendingPostResponse = useAppSelector(
     (state) => state.TrendingPostResponse
   );
-
-  const CategoryData = useSelector((state: any) => state.CategoryPostResponse);
   
   const AllGroupList = useAppSelector((state) => state.allGroupSlice);
 
   // Category Post data
   const [categoryPostData, setCategoryPostData] = useState([]);
-  const [categoryPostCalled, setCategoryPostCalled] = useState(false);
   const [categoryPostLoading, setCategoryPostLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
 
   const [isLoadingNewData, setIsLoadingNewData] = useState(false);
-  const updatePostData = (postID, PostData) => {
-    const updatedPosts = PostData?.map((item) => {
+  const updatePostData = (postID: any, PostData: any) => {
+    const updatedPosts = PostData?.map((item: any) => {
       if (item.id == postID) {
         if (
           item.comment_count
@@ -79,123 +83,183 @@ const refreshHome = useAppStore((state) => state.refreshHome);
     }
   };
 
-  const updateDeletePosts = (posts: any, postID: any, count: any) => {
-    return (Array.isArray(posts)? posts : [...posts])?.map((item: any) => {
-      if (item.id === postID) {
-        return {
-          ...item,
-          comment_count: (item?.comment_count || 0) - count,
-        };
-      }
-      return item;
-    });
-  };
   const UpdatedeletePost = (postID, count) => {
-   var homeLocalPostData = getPrefsValue("homePostData");
-    const updatedHomePosts = updateDeletePosts(HomePostResponse?.UpdatedData, postID,count);
-    const updatedTrendingPosts = updateDeletePosts(trendingPostResponse?.data, postID,count);
-    const updatedMyFeedList = updateDeletePosts(myFeedsListData.updatedData, postID,count);
-    const updatedPostsDetials = updateDeletePosts(postDetailData?.data, postID,count);
-    const updatedMyFeedPosts = updateDeletePosts(myFeedData?.updatedData, postID,count);
-    const updatedLocalPostData = updateDeletePosts(JSON.parse(homeLocalPostData || "[]"), postID,count);
+    const homeLocalPostData = JSON.parse(getPrefsValue("homePostData") || "[]");
+    // Batch all updates with optimized function
+    const updates = [
+      { data: HomePostResponse?.UpdatedData || [], action: setHomePostSlice },
+      { data: trendingPostResponse?.data || [], action: trendingUserPost },
+      { data: myFeedsListData?.updatedData || [], action: setUserFeedData },
+      { data: myFeedData?.updatedData || [], action: setMyUserFeedData },
+      { data: groupFeedsListData?.UpdatedData || [], action: updateReactions },
+      { data: postDetailData?.data || [], action: updateCount },
+      { data: categoryData?.updatedData || [], action: updateCategoryPostData }
+    ];
   
-    // Dispatch actions in parallel using Promise.all
-    Promise.all([
-      Dispatch(setHomePostSlice(updatedHomePosts)),
-      Dispatch(trendingUserPost(updatedTrendingPosts)),
-      Dispatch(setUserFeedData(updatedMyFeedList)),
-      Dispatch(updateCount(updatedPostsDetials)),
-      Dispatch(setMyUserFeedData(updatedMyFeedPosts)),
-      setPrefsValue("homePostData", JSON.stringify(updatedLocalPostData))
-    ]);
+    const dispatchPromises = updates.map(({ data, action }) => {
+      const updatedData = updateCommentPostsFast(data, postID, true);
+      return Dispatch(action(updatedData));
+    });
+  
+    // Handle local storage and post detail
+    const updatedLocalData: any = updateCommentPostsFast(homeLocalPostData, postID, true);
+    // @ts-ignore
+    dispatchPromises.push(setPrefsValue("homePostData", JSON.stringify(updatedLocalData)));
+
+    if (postDetailData?.newData?.id) {
+      const updatedPostData: any = updateCommentPostsFast([postDetailData.newData], postID, true);
+      // @ts-ignore
+      dispatchPromises.push(Dispatch(upgradePostData(updatedPostData[0])));
+    }
+    return Promise.all(dispatchPromises);
   };
 
-  const updatePosts = (posts, postID, count) => {
-    return posts?.map((item) => {
-      if (item.id === postID) {
-        return {
-          ...item,
-          comment_count: (item?.comment_count || 0) + count,
-        };
-      }
-      return item;
-    });
-  };
 
   const updateOtherPostData = (postID) => {
-    var homeLocalPostData = getPrefsValue("homePostData");
-    const updatedHomePosts = updatePosts(HomePostResponse?.UpdatedData, postID,1);
-    const updatedTrendingPosts = updatePosts(trendingPostResponse?.data, postID,1);
-    const updatedLocalPostData = updatePosts(JSON.parse(homeLocalPostData || "[]"), postID,1);
-    
-
+    const homeLocalPostData = JSON.parse(getPrefsValue("homePostData") || "[]");
+    // Batch all updates with optimized function
+    const updates = [
+      { data: HomePostResponse?.UpdatedData || [], action: setHomePostSlice },
+      { data: trendingPostResponse?.data || [], action: trendingUserPost },
+      { data: myFeedsListData?.updatedData || [], action: setUserFeedData },
+      { data: myFeedData?.updatedData || [], action: setMyUserFeedData },
+      { data: groupFeedsListData?.UpdatedData || [], action: updateReactions },
+      { data: categoryData?.updatedData || [], action: updateCategoryPostData }
+    ];
   
-    // Dispatch actions in parallel using Promise.all
-    Promise.all([
-      Dispatch(setHomePostSlice(updatedHomePosts)),
-      Dispatch(trendingUserPost(updatedTrendingPosts)),
-      setPrefsValue("homePostData", JSON.stringify(updatedLocalPostData))
-    ]);
-    
-  };
-
-  const updateLikePosts = (posts, postID, count) => {
-    return (Array.isArray(posts)? posts : [...posts])?.map((item) => {
-      if (item.id === postID) {
-        return {
-          ...item,
-          like_byme: count == 1 ? [
-            {
-              "id": 53307,
-              "reaction": 1
-            }
-          ] : [],
-          like_byMe: count == 1 ? [
-            {
-              "id": 53307,
-              "reaction": 1
-            }
-          ] : [],
-          like_count: (item.like_count || 0) + count,
-        };
-      }
-      return item;
+    const dispatchPromises = updates.map(({ data, action }) => {
+      const updatedData = updateCommentPostsFast(data, postID, true);
+      return Dispatch(action(updatedData));
     });
-  };
-  const updateOtherLikePostData = (postID,count) => {
-    var homeLocalPostData = getPrefsValue("homePostData");
-    const updatedHomePosts = updateLikePosts(HomePostResponse?.UpdatedData, postID,count);
-    const updatedTrendingPosts = updateLikePosts(trendingPostResponse?.data, postID,count);
-    const updatedPostData = postDetailData?.newData?.id ? updateLikePosts([postDetailData?.newData], postID,count): [];
-    const updatedLocalPostData = updateLikePosts(JSON.parse(homeLocalPostData || "[]"), postID,count);
-    const updatedMyFeedList = updateLikePosts(myFeedsListData.updatedData, postID,count);
-    const updatedMyFeedPosts = updateLikePosts(myFeedData?.updatedData, postID,count);
   
-    Promise.all([
-      Dispatch(setHomePostSlice(updatedHomePosts)),
-      Dispatch(trendingUserPost(updatedTrendingPosts)),
-      Dispatch(upgradePostData(updatedPostData.length > 0 ? updatedPostData[0] : {})),
-      Dispatch(setUserFeedData(updatedMyFeedList)),
-      Dispatch(setMyUserFeedData(updatedMyFeedPosts)),
-      setPrefsValue("homePostData", JSON.stringify(updatedLocalPostData))
-    ]);
+    // Handle local storage and post detail
+    const updatedLocalData: any = updateCommentPostsFast(homeLocalPostData, postID, true);
+    // @ts-ignore
+    dispatchPromises.push(setPrefsValue("homePostData", JSON.stringify(updatedLocalData)));
     
+    if (postDetailData?.newData?.id) {
+      const updatedPostData: any = updateCommentPostsFast([postDetailData.newData], postID, true);
+      // @ts-ignore
+      dispatchPromises.push(Dispatch(upgradePostData(updatedPostData[0])));
+    }
+  
+    return Promise.all(dispatchPromises);
+    
+  };
+
+  const updateCommentPostsFast = (posts, postID, isAdd) => {
+    // if (!Array.isArray(posts)) return posts;
+    var isArryValue = Array.isArray(posts)? posts : [...posts];
+    
+    const targetIndex = isArryValue.findIndex(item => item?.id === postID);
+    if (targetIndex === -1) return posts;
+    
+    // Shallow copy with single item update
+    const updatedPosts = [...isArryValue];
+    const targetPost = isArryValue[targetIndex];
+    
+    updatedPosts[targetIndex] = {
+      ...targetPost,
+      comment_count: (targetPost?.comment_count || 0) + (isAdd ? 1 : -1),
+    };
+    
+    return Array.isArray(posts)? updatedPosts : updatedPosts[0];
+  };
+
+  const updateOtherLikePostData = (postID, count) => {
+    const homeLocalPostData = JSON.parse(getPrefsValue("homePostData") || "[]");
+    
+    // Pre-compute the like update object
+    const likeUpdate = {
+      likeByMe: count === 1 ? [{ id: 53307, reaction: 1 }] : [],
+      countDelta: count
+    };
+    
+    // Batch all updates with optimized function
+    const updates = [
+      { data: HomePostResponse?.UpdatedData || [], action: setHomePostSlice },
+      { data: trendingPostResponse?.data || [], action: trendingUserPost },
+      { data: myFeedsListData.updatedData || [], action: setUserFeedData },
+      { data: myFeedData?.updatedData || [], action: setMyUserFeedData },
+      { data: groupFeedsListData?.UpdatedData || [], action: updateReactions },
+      { data: categoryData?.updatedData || [], action: updateCategoryPostData }
+    ];
+  
+    const dispatchPromises = updates.map(({ data, action }) => {
+      const updatedData = updateLikePostsFast(data, postID, likeUpdate);
+      return Dispatch(action(updatedData));
+    });
+  
+    // Handle local storage and post detail
+    const updatedLocalData: any = updateLikePostsFast(homeLocalPostData, postID, likeUpdate);
+    // @ts-ignore
+    dispatchPromises.push(setPrefsValue("homePostData", JSON.stringify(updatedLocalData)));
+    
+    if (postDetailData?.newData?.id) {
+      const updatedPostData: any = updateLikePostsFast([postDetailData.newData], postID, likeUpdate);
+      // @ts-ignore
+      dispatchPromises.push(Dispatch(upgradePostData(updatedPostData[0])));
+    }
+    if(categoryPostData?.length > 0){
+      const updatedPostData: any = updateLikePostsFast(categoryPostData, postID, likeUpdate);
+      setCategoryPostData(updatedPostData);
+    }
+  
+    return Promise.all(dispatchPromises);
+  };
+
+  const updateLikePostsFast = (posts, postID, likeUpdate) => {
+    // if (!Array.isArray(posts)) return posts;
+    var isArryValue = Array.isArray(posts)? posts : [...posts];
+    
+    const targetIndex = isArryValue.findIndex(item => item?.id === postID);
+    if (targetIndex === -1) return posts;
+    
+    // Shallow copy with single item update
+    const updatedPosts = [...isArryValue];
+    const targetPost = isArryValue[targetIndex];
+    
+    updatedPosts[targetIndex] = {
+      ...targetPost,
+      likeByMe: likeUpdate.likeByMe,
+      like_count: (targetPost?.like_count || 0) + likeUpdate.countDelta,
+    };
+    
+    return Array.isArray(posts)? updatedPosts : updatedPosts[0];
   };
 
   const MyCommunities = useCallback(() => {
     Dispatch(AllGroupReq({ fromApp: 1, last_count: 0, user_id: userId }));
-  }, [AllGroupList]);
+  }, []);
+
   
+
 
   const onFetchHomeHandler = useCallback(async ({ isLoadMore, isFirst, lastCount, isCheck }: any) => {
     if(userId){
     if(isLoadMore){
       // @ts-ignore
-      Dispatch(onFetchHomeNextPost({
+   var newNextPostData: any =   Dispatch(onFetchHomeNextPost({
         userId: userId,
         lastCount: lastCount,
         limit_count: 100
-      }));
+      }));  
+
+      if(newNextPostData?.payload?.data?.length > 0){
+        var newData = await Promise.all(newNextPostData?.payload?.data?.map(async (item) => {
+          if(item?.file_type == "image"){
+            return {
+              ...item,
+              display_height: (await Promise.all(calculateHeight(item)))
+            };
+          }
+          return {
+            ...item
+          };
+        }));
+         Dispatch(setHomeNextPostData(newData));
+        
+      }
 
     }else  {
      var newPostData: any =  await Dispatch(
@@ -207,65 +271,116 @@ const refreshHome = useAppStore((state) => state.refreshHome);
         })
       );
 
-
-
       if(newPostData?.payload?.data?.length > 0){
-        Dispatch(setHomePostSlice(newPostData?.payload?.data || []));
-        setPrefsValue("homePostData", JSON.stringify(newPostData?.payload?.data || []));
+        var newData = await Promise.all(newPostData?.payload?.data?.map(async (item) => {
+          if(item?.file_type == "image"){
+            return {
+              ...item,
+              display_height: (await Promise.all(calculateHeight(item)))
+            };
+          }
+          return {
+            ...item
+          };
+        }));
+        Dispatch(setHomePostSlice(newData));
+        InteractionManager.runAfterInteractions(() => {
+        setPrefsValue("homePostData", JSON.stringify(newData));
+        });
         
       }
     }
     }
   }, [HomePostResponse.UpdatedData]);
 
-  const OnRefreshHandlerHome = () => {
+  const OnRefreshHandlerHome = async () => {
     if(userId){
     onFetchHomeHandler({isLoadMore:false,isFirst:false,lastCount:0,isCheck:false});
     // @ts-ignore
-    Dispatch(onFetchHomeNextPost({
+   var newNextPostData: any = await Dispatch(onFetchHomeNextPost({
       userId: userId,
       lastCount: 10,
       limit_count:100
     }));
+    if(newNextPostData?.payload?.data?.length > 0){
+      var newData = await Promise.all(newNextPostData?.payload?.data?.map(async (item) => {
+        if(item?.file_type == "image"){
+          return {
+            ...item,
+            display_height: (await Promise.all(calculateHeight(item)))
+          };
+        }
+        return {
+          ...item
+        };
+      }));
+      Dispatch(setHomeNextPostData(newData));
+      
+    }
       }
     }
   
 
-  const onFetchTrendingHandler = () => {
-    Dispatch(
+  const onFetchTrendingHandler = async () => {
+   var newTrendingPostData: any = await Dispatch(
       onFetchTrendingPost({
         userId: userId,
         lastCount: 0,
       })
     );
+    if(newTrendingPostData?.payload?.data?.length > 0){
+      var newData = await Promise.all(newTrendingPostData?.payload?.data?.map(async (item) => {
+        if(item?.file_type == "image"){
+          return {
+            ...item,
+            display_height: (await Promise.all(calculateHeight(item)))
+          };
+        }
+        return {
+          ...item
+        };
+      }));
+      Dispatch(trendingUserPost(newData));
+      
+    }
   };
 
-  // Here                   CATEGORY DATA
-  useEffect(() => {
-    if (categoryPostCalled && CategoryData?.success) {
-      setCategoryPostData((prevData) => [
-        ...prevData,
-        ...CategoryData?.data,
-      ]);
-      setCategoryPostCalled(false);
-      setCategoryPostLoading(false);
-      setRefreshHome(false);
-    } else if (categoryPostCalled && !CategoryData?.success) {
-      setCategoryPostCalled(false);
-      setCategoryPostLoading(false);
-    }
-  }, [CategoryData]);
 
-  const onFetchCategoryHandler = ({ catId }) => {
-    Dispatch(
+  const onFetchCategoryHandler = async({ catId }) => {
+    try{
+    setCategoryPostLoading(true);
+   var newCategoryPostData: any = await Dispatch(
       onFetchCategoryPost({
         userId: userId,
         catId: catId,
         lastCount: categoryPostData.length,
       })
     );
-    setCategoryPostCalled(true);
-    setCategoryPostLoading(true);
+    if(newCategoryPostData?.payload?.data?.length > 0){
+      var newData = await Promise.all(newCategoryPostData?.payload?.data?.map(async (item) => {
+        if(item?.file_type == "image"){
+          return {
+            ...item,
+            display_height: (await Promise.all(calculateHeight(item)))
+          };
+        }
+        return {
+          ...item
+        };
+      }));
+      Dispatch(updateCategoryPostData(categoryPostData.length > 0 ? [...categoryData?.updatedData, ...newData]:newData));
+      setCategoryPostData((prevData) => [
+        ...prevData,
+        ...newData,
+      ]);
+    }
+  }
+  catch(e){
+    console.log("e", e);
+  }
+  finally{
+    setCategoryPostLoading(false);
+  }
   };
 
   const onRefreshHandler = () => {

@@ -10,6 +10,7 @@ const AllGroupSlice = createSlice({
     error: false,
     error_message: "",
     lastCount: 0,
+    lastData: [],
   },
   reducers: {
     setAllGroupsLoading: (state, action) => {
@@ -34,6 +35,7 @@ const AllGroupSlice = createSlice({
           );
           state.data = [...state.data, ...filteredNewData];
         }
+        state.lastData = action?.payload.data || [];
         state.success = true;
         state.isLoaded = false;
         state.error = false;

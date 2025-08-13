@@ -1,8 +1,17 @@
 export const htmlTagRemove = (groupDesc: string) => {
-    const cleanString = groupDesc
-    .replace(/<\/?br\s*\/?>/gi, '\n') // Replace <br> tags with newlines
-    .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+  if (typeof groupDesc !== "string") {
+    return [];
+  }
+
+  const cleanString = groupDesc
+    .replace(/<\/?br\s*\/?>/gi, "\n") // Replace <br> tags with newlines
+    .replace(/\s+/g, " ") // Replace multiple spaces with single space
     .trim();
-  const lines = cleanString.split('\n').filter(line => line.trim() !== '');
-    return lines;
+
+  const lines = cleanString
+    .split("\n")
+    .map(line => line.trim())
+    .filter(line => line !== "");
+
+  return lines;
 };

@@ -11,7 +11,6 @@ import { useScreenTracking } from "@/customHooks/useAnalytics";
 
 const SuccessfullVerificationModal = () => {
   useScreenTracking("SuccessfullVerificationModal");
-  const params = useLocalSearchParams()
 
   return (
     <ViewWrapper>
@@ -50,28 +49,17 @@ const SuccessfullVerificationModal = () => {
         >
           You are a verified user of Qoneqt now!
         </Text>
-        <Text
-          style={{
-            alignSelf: "stretch",
-            fontSize: 12,
-            lineHeight: 18,
-            fontFamily: fontFamilies.regular,
-            color: globalColors.neutral9,
-            textAlign: "center",
-            marginTop: 12,
-          }}
-        >{`Help us craft your feed by selecting your preferred \ncategory of content`}</Text>
+
         <Button1
-        isLoading={false}
+          isLoading={false}
           title="Continue"
           onPress={() => {
-            if(router.canGoBack()){
-              router.back()
-            }else{
-              router.replace("/DashboardScreen")
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace("/DashboardScreen");
             }
-            
-            }}
+          }}
         />
       </View>
     </ViewWrapper>

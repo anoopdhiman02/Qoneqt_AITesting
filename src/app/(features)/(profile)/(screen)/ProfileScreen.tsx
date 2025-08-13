@@ -14,7 +14,6 @@ import {
   TouchableOpacity,
   View,
   InteractionManager,
-  ListRenderItem,
   ActivityIndicator,
   BackHandler,
   Keyboard,
@@ -48,7 +47,7 @@ import { useCameraPermission } from "react-native-vision-camera";
 import { useIdStore } from "@/customHooks/CommentUpdateStore";
 import Clipboard from "@react-native-clipboard/clipboard";
 import { onFetchMyUserFeeds } from "@/redux/reducer/Profile/FetchUserFeeds";
-import { setIsLoading } from "@/redux/slice/profile/ProfileMyFeedsSlice";
+import { setIsLoading, setMyUserFeedData } from "@/redux/slice/profile/ProfileMyFeedsSlice";
 import UserStoreDataModel from "@/viewModels/UserStoreDataModal";
 import PostOptionComponent from "./profile/Component/PostOptionComponent";
 import ShareProfileComponent from "./profile/Component/ShareProfileComponent";
@@ -72,9 +71,10 @@ import CreatePostView from "./profile/Component/CreatePostView";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import CommentsBottomSheet from "../../(viewPost)/component/CommentsBottomSheet";
 import useKeyboardVisible from "@/app/hooks/useKeyboardVisible";
+import { FlashList } from "@shopify/flash-list";
+import { calculateHeight } from "@/utils/ImageHelper";
 
 // Performance constants for optimal rendering
-const INITIAL_POSTS_TO_RENDER = 3;
 const POSTS_PER_BATCH = 2;
 const WINDOW_SIZE = 7;
 const MAX_POSTS_LIMIT = 100; // Prevent infinite loading
@@ -253,7 +253,7 @@ const ProfileScreen = () => {
   const myPostsViewModel = useMyPostsViewModel();
   const postCommentsHook = usePostCommentsHook();
   const userStoreDataModel = UserStoreDataModel();
-  const createPostHook = useCreatePostViewModel();
+  const createPostHook: any = useCreatePostViewModel();
   const transactionHook = TransactionViewModel();
   
   // Video store selectors
@@ -312,7 +312,7 @@ const ProfileScreen = () => {
   const AddMoneyRef = useRef<BottomSheet>(null);
   const DeletePostRef = useRef<BottomSheet>(null);
   const WithdrawAmount = useRef<BottomSheet>(null);
-  const flatListRef = useRef<FlatList>(null);
+  const flatListRef = useRef<FlashList<any>>(null);
   const [commentIndex, setCommentIndex] = useState(-1);
   const keyboardVisible = useKeyboardVisible();
 
@@ -366,23 +366,69 @@ const ProfileScreen = () => {
   }, [postDetailResponse?.updatedData]);
 
   // Optimized debounced scroll handler
-  const debouncedEndReached = useMemo(() => {
-    return createDebouncedFunction(() => {
-      if (!postDetailResponse?.isLoaded && processedPosts.length > 0 && processedPosts.length < MAX_POSTS_LIMIT) {
-        // Use InteractionManager to prevent blocking
-        InteractionManager.runAfterInteractions(() => {
-          dispatch(setIsLoading(true));
-          dispatch(
-            onFetchMyUserFeeds({
-              userId: userId,
-              profileId: userId,
-              lastCount: processedPosts.length,
-            })
-          );
-        });
-      }
-    }, 400);
+  const debouncedEndReached: any = useCallback(() => {
+    if (!postDetailResponse?.isLoaded && processedPosts.length > 3 && processedPosts.length < profileDetails?.post_count) {
+        dispatch(setIsLoading(true));
+       updatePostList();
+    }
   }, [dispatch, userId, postDetailResponse?.isLoaded, processedPosts.length]);
+
+  const updatePostList = async () => {
+    var userFeedNewData: any =  await dispatch(
+      onFetchMyUserFeeds({
+        userId: userId,
+        profileId: userId,
+        lastCount: processedPosts.length,
+      })
+    );
+    if(userFeedNewData.payload.success){
+      var newData = await Promise.all(userFeedNewData?.payload?.data?.map(async (item) => {
+                        if(item?.file_type == "image"){
+                          return {
+                            ...item,
+                            display_height: (await Promise.all(calculateHeight(item)))
+                          };
+                        }
+                        return {
+                          ...item
+                        };
+                      })); 
+      if(newData.length > 0){
+        dispatch(setMyUserFeedData([...processedPosts, ...newData]));
+      }
+    }
+  }
+
+  useEffect(() => {
+    getProfileFeedDetails();
+  }, [])
+
+  const getProfileFeedDetails = async () => {
+  var userFeedData: any =  await dispatch(
+      onFetchMyUserFeeds({
+        userId: userId,
+        profileId: userId,
+        lastCount: 0,
+      })
+    );
+    if(userFeedData.payload.success){
+      var newData = await Promise.all(userFeedNewData?.payload?.data?.map(async (item) => {
+        if(item?.file_type == "image"){
+          return {
+            ...item,
+            display_height: (await Promise.all(calculateHeight(item)))
+          };
+        }
+        return {
+          ...item
+        };
+      })); 
+          
+      if(newData.length > 0){
+        dispatch(setMyUserFeedData(newData));
+    }
+  }
+  };
 
   // FIXED: Component ready effect with proper cleanup
   useEffect(() => {
@@ -703,7 +749,7 @@ const ProfileScreen = () => {
   }, []);
 
   // FlatList render functions
-  const renderItem: ListRenderItem<any> = useCallback(({ item, index }) => (
+  const renderItem = useCallback(({ item, index }) => (
     <PostItem
       item={item}
       index={index}
@@ -733,10 +779,10 @@ const ProfileScreen = () => {
   }), []);
 
   const renderFooter = useCallback(() => {
-    if (!myPostsViewModel.myFeedLoading) return null;
+    if (!myPostsViewModel.myFeedLoading) return <View style={{ padding: 20, alignItems: 'center', marginBottom: 20, height: 100 }} />;
     
     return (
-      <View style={{ padding: 20, alignItems: 'center' }}>
+      <View style={{ padding: 20, alignItems: 'center', marginBottom: 20, height: 100 }}>
         <ActivityIndicator size="small" />
       </View>
     );
@@ -781,6 +827,7 @@ const ProfileScreen = () => {
         name={profileDetails?.full_name}
         isVerified={profileDetails?.kyc_status}
         onEventCreate={({ postData, fromEventID }) => {
+          console.log("dsalkfhsdfjk", JSON.stringify({ postData, fromEventID }))
           router.push({
             pathname: "/CreateEventPostScreen",
             params: { postData, fromEventID },
@@ -827,20 +874,24 @@ const ProfileScreen = () => {
       <OpenVerifyModal isVisible={uiState.modals.kycModalVisible} />
 
       {/* Main Content - Optimized FlatList */}
-      <FlatList
+      <FlashList
         ref={flatListRef}
-        data={processedPosts}
+        data={ (profileDetails?.post_count) > 0 ? processedPosts : []}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
         onEndReached={debouncedEndReached}
         onEndReachedThreshold={0.8}
         removeClippedSubviews={true}
-        maxToRenderPerBatch={POSTS_PER_BATCH}
-        initialNumToRender={INITIAL_POSTS_TO_RENDER}
-        windowSize={WINDOW_SIZE}
+        // @ts-ignore
+        maxToRenderPerBatch={6}
+        overScrollMode="never"
         getItemLayout={getItemLayout}
+        updateCellsBatchingPeriod={100}
+        windowSize={8}
+        initialNumToRender={4}
+        estimatedItemSize={420}
         ListHeaderComponent={
-          <View>
+          <TouchableOpacity activeOpacity={1}>
             <MemoizedProfileDetailsComponent
               loading={uiState.ui.loading}
               userId={profileDetails?.id || ""}
@@ -882,29 +933,12 @@ const ProfileScreen = () => {
             />
 
             <FeedTitleComponent profileDetails={profileDetails} />
-          </View>
+          </TouchableOpacity>
         }
         ListFooterComponent={renderFooter}
         ListEmptyComponent={<NoFeedComponent />}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ flexGrow: 1 }}
-        style={{ width: "100%" }}
       />
-
-      {/* <CreatePostComponent
-        onPressCameraTwo={createPostHook.onPressCameraTwo}
-        imageFileData={createPostHook.imageFileData}
-        selectedvideo={createPostHook.selectedvideo}
-        setSelectedVideo={createPostHook.setSelectedVideo}
-        setImageFileData={createPostHook.setImageFileData}
-        onChangeCaptionHandler={createPostHook.onChangeCaptionHandler}
-        desc={createPostHook.desc}
-        onSubmitHomePostHandler={createPostHook.onSubmitHomePostHandler}
-        onSubmitPostHandler={createPostHook.onSubmitPostHandler}
-        progressValue={submitPostResponse?.progress}
-        progressVisible={submitPostResponse?.loading}
-        isCreatePostFailed={submitPostResponse?.isFailed}
-      /> */}
       <CreatePostView onPress={() => {router.push("/CreatePostScreen")}} insets={insets} />
 
       <SelectImageMediaSheet

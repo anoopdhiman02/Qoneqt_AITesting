@@ -23,9 +23,7 @@ const SearchPostItemComponent = ({ post, onPressPost }: SearchPostItemComponentP
 
   return (
     <TouchableOpacity
-      onPress={() =>
-        onPressPost()
-      }
+      onPress={() => onPressPost()}
       key={post.id}
       style={{
         borderRadius: 16,
@@ -36,12 +34,18 @@ const SearchPostItemComponent = ({ post, onPressPost }: SearchPostItemComponentP
         marginTop: "3%",
       }}
     >
-      <View style={{ flexDirection: "column", width: "100%" }}>
+      <View
+        style={{
+          flexDirection: "column",
+          width: "96%",
+          marginHorizontal: "2%",
+        }}
+      >
         <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             <ImageFallBackUser
               imageData={post?.post_by?.profile_pic}
-              fullName={post?.post_by?.full_name || 'U'}
+              fullName={post?.post_by?.full_name || "U"}
               widths={30}
               heights={30}
               borders={16}
@@ -67,20 +71,34 @@ const SearchPostItemComponent = ({ post, onPressPost }: SearchPostItemComponentP
                   style={{
                     fontSize: 10,
                     fontFamily: fontFamilies.regular,
-                    color: globalColors.neutral9,
+                    color: globalColors.neutral8,
                   }}
                 >
-                  {loopName}
+                   {moment
+                                      .utc(post.time)
+                                      .utcOffset("+05:30")
+                                      .format("DD MMM YYYY, h:mm A")}
+                  {/* {moment.utc(post.time).utcOffset("+05:30").fromNow()} */}
                 </Text>
+                <View
+                  style={{
+                    width: 4,
+                    height: 4,
+                    borderRadius: 2,
+                    backgroundColor: globalColors.neutral8,
+                    marginLeft: 6,
+                    marginTop: "3%",
+                  }}
+                />
                 <Text
                   style={{
                     fontSize: 10,
                     fontFamily: fontFamilies.regular,
-                    color: globalColors.neutral8,
-                    marginLeft: 8,
+                    color: globalColors.neutral9,
+                    marginLeft: 4,
                   }}
                 >
-                  {moment.utc(post.time).utcOffset("+05:30").fromNow()}
+                  {loopName}
                 </Text>
               </View>
             </View>
@@ -102,7 +120,18 @@ const SearchPostItemComponent = ({ post, onPressPost }: SearchPostItemComponentP
           >
             {postTitle}
           </Text>
-          <MediaPost source={post.post_image ? post.post_image.split(",") : post?.post_video ? {thumbnail: post?.video_snap_path, url: post?.post_video} : []} type={post.file_type} isHome={false} />
+          <MediaPost
+            source={
+              post.post_image
+                ? post.post_image.split(",")
+                : post?.post_video
+                ? { thumbnail: post?.video_snap_path, url: post?.post_video }
+                : []
+            }
+            type={post.file_type}
+            isHome={false}
+            display_height={[]}
+          />
         </View>
         {/* Uncomment for like/comment buttons */}
         {/* <View style={{ flexDirection: "row", marginTop: 16 }}>

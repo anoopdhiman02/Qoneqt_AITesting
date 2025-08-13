@@ -29,13 +29,14 @@ const SearchProfileItemComponent = ({ profileData, index }) => {
       }}
       style={{
         borderRadius: 16,
-        backgroundColor: globalColors.neutral2,
+        backgroundColor: globalColors.subgroupBG,
         borderStyle: "solid",
-        borderColor: globalColors.neutral3,
+        borderColor: globalColors.subgroupBorder,
         borderWidth: 2,
-        width: "100%",
+        width: "94%",
         overflow: "hidden",
-        marginVertical: 16,
+        marginVertical: 6,
+        marginHorizontal: "3%",
       }}
     >
       <View style={{ padding: "4%" }}>
@@ -49,12 +50,18 @@ const SearchProfileItemComponent = ({ profileData, index }) => {
               borders={25}
             />
             <View style={{ marginLeft: 16, width: "75%" }}>
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  marginBottom: 4,
+                }}
+              >
                 <Text
                   style={{
-                    fontSize: 18,
+                    fontSize: 16,
                     lineHeight: 22,
-                    fontFamily: fontFamilies.medium,
+                    fontFamily: fontFamilies.semiBold,
                     color: globalColors.neutralWhite,
                   }}
                 >
@@ -64,9 +71,9 @@ const SearchProfileItemComponent = ({ profileData, index }) => {
               </View>
               <Text
                 style={{
-                  fontSize: 14,
+                  fontSize: 12,
                   fontFamily: fontFamilies.regular,
-                  color: globalColors.neutral9,
+                  color: globalColors.neutral7,
                 }}
               >
                 @{social_name || username}

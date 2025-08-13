@@ -51,7 +51,7 @@ const useUserChatListViewModel = () => {
   };
   useEffect(() => {
     if (listRedisApiCalled && fetchMessageRedisList?.success) {
-      setMessagesRedisList(fetchMessageRedisList?.data);
+      setMessagesRedisList(fetchMessageRedisList?.data || []);
       setListRedisLoading(false);
       setListRedisApiCalled(false);
     } else if (listRedisApiCalled && !fetchMessageRedisList?.data?.success) {
@@ -67,7 +67,7 @@ const useUserChatListViewModel = () => {
   };
   useEffect(() => {
     if (listApiCalled && fetchMessageList?.success) {
-      setMessagesList(fetchMessageList?.data);
+      setMessagesList(fetchMessageList?.data || []);
       setListLoading(false);
       setListApiCalled(false);
     } else if (listApiCalled && !fetchMessageList?.data?.success) {
@@ -84,7 +84,7 @@ const useUserChatListViewModel = () => {
   };
   useEffect(() => {
     if (userApiCalled && messageUserListResponse?.success) {
-      setUserList(messageUserListResponse?.data);
+      setUserList(messageUserListResponse?.data || []);
       setUserLoading(false);
       setUserApiCalled(false);
     } else if (userApiCalled && !messageUserListResponse?.data?.success) {

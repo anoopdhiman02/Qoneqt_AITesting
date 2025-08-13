@@ -34,15 +34,17 @@ const SearchSuggestItemComponent = ({ postData, index }) => {
       }
       style={{
         borderRadius: 16,
-        backgroundColor: globalColors.neutral2,
-        width: "45%",
+        backgroundColor: globalColors.darkOrchidShade80,
+        width: "44%",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         padding: "5%",
-        marginLeft: (index + 1) % 2 === 0 ? "5%": 0,
-        marginRight: (index + 1) % 2 === 0 ? 0: "5%",
-        marginBottom: "5%",
+        marginLeft: (index + 1) % 2 === 0 ? "2%" : "4%",
+        marginRight: (index + 1) % 2 === 0 ? "4%" : "2%",
+        marginBottom: "4%",
+        borderWidth: 1,
+        borderColor: globalColors.subgroupBorder,
       }}
     >
       <View
@@ -61,6 +63,7 @@ const SearchSuggestItemComponent = ({ postData, index }) => {
           widths={58}
           heights={58}
           borders={10}
+          isGroupList={true}
         />
 
         <View
@@ -121,7 +124,7 @@ const SearchSuggestItemComponent = ({ postData, index }) => {
                 color: globalColors.neutralWhite,
               }}
             >
-              #{category.category_name}
+              {category.category_name}
             </Text>
           </View>
         )}

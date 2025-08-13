@@ -61,7 +61,6 @@ import DeleteGroupComponent from "../../component/DeleteGroupComponent";
 import MuteNotificationComponent from "../../component/MuteNotificationComponent";
 import OptionComponent from "../../component/OptionComponent";
 import { useVideoPlayerStore } from "@/zustand/VideoPlayerStore";
-import MediaPost from "@/components/MediaPost";
 import { commentLoading } from "@/redux/slice/post/FetchCommentsSlice";
 import { shallowEqual, useSelector } from "react-redux";
 import ProgressBar from "@/components/ProgressBar";
@@ -687,6 +686,7 @@ const groups = () => {
               }
               isPlaying={currentPlaying === postData.id}
               setCurrentPlaying={setCurrentPlaying}
+              currentUserID={'00000'}
             />
           ))
         ) : (

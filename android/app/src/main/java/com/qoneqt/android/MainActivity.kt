@@ -2,9 +2,6 @@ package com.qoneqt.android
 
 import android.os.Build
 import android.os.Bundle
-import android.view.View
-import android.view.WindowInsets
-import android.view.WindowInsetsController
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
@@ -21,22 +18,6 @@ class MainActivity : ReactActivity() {
     setTheme(R.style.AppTheme);
     super.onCreate(savedInstanceState)
     // super.onCreate(null)
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-          // Android 11+ (API 30+)
-          val controller = window.insetsController
-          if (controller != null) {
-              controller.hide(WindowInsets.Type.navigationBars() or WindowInsets.Type.statusBars())
-              controller.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-          }
-      } else {
-          // Below Android 11
-          @Suppress("DEPRECATION")
-          window.decorView.systemUiVisibility = (
-                  View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                          or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                          or View.SYSTEM_UI_FLAG_FULLSCREEN
-                  )
-      }
   }
 
   /**

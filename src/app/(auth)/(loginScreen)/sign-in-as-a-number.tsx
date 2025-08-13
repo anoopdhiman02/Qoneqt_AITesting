@@ -214,7 +214,6 @@ const fetchLoginUser = useAppSelector((state) => state?.loginUserApi);
                   Qoneqt's Terms & Conditions
                 </Text>{" "}
                 and Privacy Policy
-                {/* {`Your verification is \nbeing processed`} */}
               </Text>
             </TouchableOpacity>
           </View>

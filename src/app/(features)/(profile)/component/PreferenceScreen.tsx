@@ -1,106 +1,63 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useMemo } from "react";
 import {
   ScrollView,
   Text,
   TouchableOpacity,
   View,
   Animated,
+  FlatList,
 } from "react-native";
 import { fontFamilies } from "@/assets/fonts";
 import { globalColors } from "@/assets/GlobalColors";
 import { useAppDispatch, useAppSelector } from "@/utils/Hooks";
 import {
-  TravelIcon,
-  SportsIcon,
-  HealthcareIcon,
-  TourismIcon,
-  EntertainmentIcon,
-  Web30Icon,
-  NewsIcon,
-  CryptoCurrencyIcon,
-  BlockchainIcon,
-  FitnessIcon,
-  TechNewsIcon,
-  HealthAndFoodIcon,
-  CompanyIcon,
-  PoliticsIcon,
-  MusicIcon,
-  LanguageIcon,
-  JobIcon,
-  GeneralIcon,
-  StockIcon,
-  BusinessIcon,
-  TechnologyIcon,
-  EducationIcons,
-  CurrencyIcons,
-  CityIcons,
+  CheckCircleIcon,
 } from "@/assets/DarkIcon";
 import { useAppStore } from "@/zustand/zustandStore";
 import { router } from "expo-router";
-import GradientText from "@/components/element/GradientText";
 import { onAddPreference } from "@/redux/reducer/Profile/AddPreference";
 import { showToast } from "@/components/atom/ToastMessageComponent";
-import ViewWrapper from "@/components/ViewWrapper";
 import Button1 from "@/components/buttons/Button1";
 import { useScreenTracking } from "@/customHooks/useAnalytics";
 import categoryList from '@/RowData/categoryList.json';
+import { Dimensions } from "react-native";
 
-const iconMapping = {
-  travel: TravelIcon,
-  healthcare: HealthcareIcon,
-  sports: SportsIcon,
-  tourism: TourismIcon,
-  entertainment: EntertainmentIcon,
-  web3: Web30Icon,
-  news: NewsIcon,
-  cryptocurrency: CryptoCurrencyIcon,
-  blockchain: BlockchainIcon,
-  fitness: FitnessIcon,
-  technews: TechNewsIcon,
-  healthandfood: HealthAndFoodIcon,
-  company: CompanyIcon,
-  politics: PoliticsIcon,
-  music: MusicIcon,
-  language: LanguageIcon,
-  jobs: JobIcon,
-  general: GeneralIcon,
-  stocks: StockIcon,
-  business: BusinessIcon,
-  history: NewsIcon,
-  country: CompanyIcon,
-  science: PoliticsIcon,
-  community: BlockchainIcon,
-  technology: TechnologyIcon,
-  education: EducationIcons,
-  currency: CurrencyIcons,
-  city: CityIcons,
-};
+const { height } = Dimensions.get("window");
 
-// const getIconForCategory = (categoryName) => {
-//   return iconMapping[categoryName.toLowerCase()] || EntertainmentIcon;
-// };
 
-const CheckItemComponent = ({ id, label, categoryName, checked, onPress }) => {
-  // const IconComponent = getIconForCategory(categoryName);
+const CheckItemComponent = React.memo(({ id, label, checked, onPress }: any) => {
+  const handlePress = useCallback(() => {
+    onPress(id);
+  }, [id, onPress]);
+
+  // Memoize styles to prevent recreation
+  const containerStyle = useMemo(() => ({
+    backgroundColor: globalColors.neutral1,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: checked
+      ? globalColors.darkOrchidShade20
+      : globalColors.neutral2,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    padding: 12,
+    marginBottom: 12,
+    marginRight: 12,
+    flexShrink: 1,
+  }), [checked]);
+
+  const checkIconStyle = useMemo(() => ({
+    position: "absolute",
+    right: -10,
+    top: -10
+  }), []);
+
   return (
     <TouchableOpacity
-      onPress={() => onPress(id)}
-      key={id}
-      style={{
-        backgroundColor: globalColors.neutral1,
-        borderRadius: 10,
-        borderWidth: 1,
-        borderColor: checked
-          ? globalColors.darkOrchidShade20
-          : globalColors.neutral2,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "flex-start",
-        padding: 12,
-        marginBottom: 12,
-        marginRight: 12,
-        flexShrink: 1,
-      }}
+      onPress={handlePress}
+      style={containerStyle}
+      activeOpacity={0.7}
     >
       <Text
         style={{
@@ -111,75 +68,100 @@ const CheckItemComponent = ({ id, label, categoryName, checked, onPress }) => {
       >
         {label}
       </Text>
+      {checked && (
+        <View style={checkIconStyle}>
+          <CheckCircleIcon />
+        </View>
+      )}
     </TouchableOpacity>
   );
-};
+});
+
+CheckItemComponent.displayName = 'CheckItemComponent';
+
+const Caption = React.memo(() => (
+  <View
+    style={{
+      paddingLeft: "2%",
+      width: "95%",
+    }}
+  >
+    <Text
+      style={{
+        fontSize: 22,
+        fontFamily: fontFamilies.semiBold,
+        color: globalColors.neutral_white["100"],
+      }}
+    >
+      Update categories of your preferences.
+    </Text>
+    <Text
+      style={{
+        fontSize: 14,
+        fontFamily: fontFamilies.regular,
+        color: globalColors.neutral_white["200"],
+        marginTop: 10,
+      }}
+    >
+      Based on your updated preferences, we will tailor your feed to better
+      suit your interests.
+    </Text>
+  </View>
+));
+
+Caption.displayName = 'Caption';
 
 const PreferenceScreen = ({ catIdData }) => {
   useScreenTracking("PreferenceScreen");
   const { userId } = useAppStore();
-  const Dispatch = useAppDispatch();
-  const preferenceListResponse = useAppSelector(
-    (state) => state.preferenceListResponse
-  );
-
+  const dispatch = useAppDispatch();
   const addPreferenceResponse = useAppSelector(
     (state) => state.addPreferenceData
   );
-
-  const [apiCalled, setApiCalled] = useState(false);
-  const [loading, setLoading] = useState(false);
-   const [categoryLists, setCategoryList] = useState(categoryList);
-  const [isAnyOptionSelected, setIsAnyOptionSelected] = useState(false);
-  const [error, setError] = useState("");
-  const [shakeAnimation] = useState(new Animated.Value(0));
-
-  //submit preference
-  const [submitCalled, setSubmitCalled] = useState(false);
-  const [submitLoading, setSubmitLoading] = useState(false);
-
-  useEffect(() => {
-    // Initialize categoryList based on catIdData
-    const updatedCategories = categoryLists.map((category) => ({
+  const initialCategories = useMemo(() => {
+    return categoryList.map((category) => ({
       ...category,
-      isSelected: catIdData.includes(category.id), // Set selected based on catIdData
+      isSelected: catIdData.includes(category.id),
     }));
-    setCategoryList(updatedCategories);
-  }, [catIdData]); // Run this effect when catIdData changes
+  }, [catIdData]);
+
+const [categoryLists, setCategoryList] = useState(initialCategories);
+  const [loading, setLoading] = useState(false);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [submitCalled, setSubmitCalled] = useState(false);
+  const [shakeAnimation] = useState(() => new Animated.Value(0));
+
+  const selectedCount = useMemo(() => {
+    return categoryLists.filter(item => item.isSelected).length;
+  }, [categoryLists]);
+
+  const isValidSelection = selectedCount >= 5;
+  const remainingSelections = Math.max(0, 5 - selectedCount);
 
   const toggleCuisine = useCallback((id) => {
     setCategoryList((prevCategories) => {
-      const newCategories = prevCategories.map((category) =>
+      return prevCategories.map((category) =>
         category.id === id
           ? { ...category, isSelected: !category.isSelected }
           : category
       );
-      const anySelected = newCategories.some((category) => category.isSelected);
-      setIsAnyOptionSelected(anySelected);
-      if (anySelected) setError("");
-      return newCategories;
     });
   }, []);
 
-
-  //Submit Preference
   useEffect(() => {
     if (submitCalled && addPreferenceResponse?.success) {
       setSubmitCalled(false);
       setSubmitLoading(false);
       router.replace("/DashboardScreen");
       showToast({ type: "success", text1: addPreferenceResponse?.message });
-    } else if (submitCalled && !addPreferenceResponse?.success) {
+    } else if (submitCalled && addPreferenceResponse && !addPreferenceResponse?.success) {
       setSubmitCalled(false);
       setSubmitLoading(false);
     }
-  }, [addPreferenceResponse]);
+  }, [addPreferenceResponse, submitCalled]);
 
-  // useEffect(() => {
-  //   onFetchListHandler();
-  // }, []);
-
-  const shakeError = () => {
+  // Optimized shake animation
+  const shakeError = useCallback(() => {
     Animated.sequence([
       Animated.timing(shakeAnimation, {
         toValue: 10,
@@ -202,100 +184,79 @@ const PreferenceScreen = ({ catIdData }) => {
         useNativeDriver: true,
       }),
     ]).start();
-  };
+  }, [shakeAnimation]);
 
-  const CategoriesList = () => {
-    return (
-      <View
-        style={{
-          width: "100%",
-          flexDirection: "row",
-          flexWrap: "wrap",
-          justifyContent: "flex-start",
-          marginTop: 20,
-        }}
-      >
-        {categoryLists.map((item) => (
-          <CheckItemComponent
-            key={item.id}
-            id={item.id}
-            label={item.category_name}
-            categoryName={item.category_name}
-            checked={item.isSelected}
-            onPress={toggleCuisine}
-          />
-        ))}
-      </View>
-    );
-  };
-
-  const Caption = () => {
-    return (
-      <View
-        style={{
-          paddingLeft: "2%",
-          width: "95%",
-        }}
-      >
-        <Text
-          style={{
-            fontSize: 22,
-            fontFamily: fontFamilies.semiBold,
-            color: globalColors.neutral_white["100"],
-          }}
-        >
-          Update categories of your preferences.
-        </Text>
-        <Text
-          style={{
-            fontSize: 14,
-            fontFamily: fontFamilies.regular,
-            color: globalColors.neutral_white["200"],
-            marginTop: 10,
-          }}
-        >
-          {/* We will customize your feed according to the preferences you've
-          chosen. */}
-          Based on your updated preferences, we will tailor your feed to better
-          suit your interests.
-        </Text>
-      </View>
-    );
-  };
-
-  const onSubmitFavCategory = () => {
-    const selectedCategories = categoryLists.filter((item) => item.isSelected);
-    if (selectedCategories.length >= 5) {
-      Dispatch(
+  // Optimized submit handler
+  const onSubmitFavCategory = useCallback(() => {
+    if (isValidSelection) {
+      const selectedCategories = categoryLists
+        .filter((item) => item.isSelected)
+        .map((item) => item.id);
+      
+      dispatch(
         onAddPreference({
           userId: userId,
-          category: selectedCategories.map((item) => item.id),
+          category: selectedCategories,
         })
       );
       setSubmitCalled(true);
       setSubmitLoading(true);
     } else {
-      const remaining = 5 - selectedCategories.length;
-      setError(`Please select at least ${remaining} more ${remaining === 1 ? 'category' : 'categories'}.`);
+      const message = `Please select at least ${remainingSelections} more ${remainingSelections === 1 ? 'category' : 'categories'}.`;
       showToast({
         type: "error",
-        text1: `Please select at least ${remaining} more ${remaining === 1 ? 'category' : 'categories'}.`,
+        text1: message,
       });
+      shakeError();
     }
-  };
+  }, [isValidSelection, categoryLists, dispatch, userId, remainingSelections, shakeError]);
+
+  // Render item for FlatList (more performant than map)
+  const renderCategoryItem = useCallback(({ item }) => (
+    <CheckItemComponent
+      key={item.id}
+      id={item.id}
+      label={item.category_name}
+      categoryName={item.category_name}
+      checked={item.isSelected}
+      onPress={toggleCuisine}
+    />
+  ), [toggleCuisine]);
+
+  // Key extractor for FlatList
+  const keyExtractor = useCallback((item) => item.id.toString(), []);
+
+  // Memoized categories list component
+  const CategoriesList = useMemo(() => (
+    <View
+      style={{
+        width: "100%",
+        flexDirection: "row",
+        flexWrap: "wrap",
+        justifyContent: "flex-start",
+        marginTop: 20,
+      }}
+    >
+      {categoryLists.map((item) => (
+        <CheckItemComponent
+          key={item.id}
+          id={item.id}
+          label={item.category_name}
+          categoryName={item.category_name}
+          checked={item.isSelected}
+          onPress={toggleCuisine}
+        />
+      ))}
+    </View>
+  ), [categoryLists, toggleCuisine]);
+
 
 
   return (
-    <View
-      style={{
-        width: "95%",
-        marginBottom: "35%",
-        height: 600,
-      }}
-    >
+    <View style={{ width: "100%", marginBottom: "35%", height: height * 0.68 }}>
       <Caption />
 
-      <ScrollView>
+      <ScrollView showsVerticalScrollIndicator={false}>
         {loading ? (
           <Text
             style={{
@@ -306,22 +267,20 @@ const PreferenceScreen = ({ catIdData }) => {
             Loading...
           </Text>
         ) : (
-          <CategoriesList />
+          CategoriesList
         )}
-      </ScrollView>
-      <View
-        style={{
-          width: "100%",
-        }}
-      >
+        <View style={{ width: "100%", marginTop: 20 }}>
         <Button1
           isLoading={submitLoading}
           title="Save"
           onPress={onSubmitFavCategory}
         />
       </View>
+      </ScrollView>
+      
+      
     </View>
   );
 };
 
-export default PreferenceScreen;
+export default React.memo(PreferenceScreen);

@@ -50,7 +50,6 @@ export const LoginUserApi = createAsyncThunk(
     };
 
     try {
-      console.log("options",JSON.stringify(options));
       const response = await axios.request(options);
       return response?.data;
     } catch (error) {

@@ -28,6 +28,7 @@ import { onFetchReferral } from "@/redux/reducer/Transaction/FetchReferral";
 import { useAppStore } from "@/zustand/zustandStore";
 import { router, useLocalSearchParams } from "expo-router";
 import { useScreenTracking } from "@/customHooks/useAnalytics";
+import UserStoreDataModel from "@/viewModels/UserStoreDataModal";
 const { width, height } = Dimensions.get("window");
 
 const ReferralScreen = () => {
@@ -42,6 +43,7 @@ const ReferralScreen = () => {
   const dispatch = useDispatch();
   const { userId } = useAppStore();
   const params = useLocalSearchParams();
+   const { updateUserData } = UserStoreDataModel();
   useEffect(() => {
     //@ts-ignore
     dispatch(onFetchReferral({ userId: userId }));
@@ -52,6 +54,7 @@ const ReferralScreen = () => {
                   router.back();
                 }
                 else{
+                  updateUserData();
                   router.replace("/DashboardScreen");
                 }
                 return true;
@@ -433,13 +436,25 @@ const ReferralScreen = () => {
     </View>
   );
 
+  const handleBackPress = () => {
+    if(router.canGoBack()){
+      router.back();
+    }
+    else{
+      updateUserData();
+      router.replace("/DashboardScreen");
+    }
+  };
 
   return (
     <ViewWrapper>
       <View style={{  width: "90%", flex:1 }}>
         <GoBackNavigation header="Refer & earn" 
         isDeepLink={params.isNotification}
-        isHome={params.isNotification == "true"} />
+        isHome={params.isNotification == "true"}
+        isBack={params.isNotification != "true"}
+        backPress={handleBackPress} 
+         />
         <ScrollView
           ref={scrollRef}
           contentContainerStyle={{
@@ -450,6 +465,7 @@ const ReferralScreen = () => {
           onScroll={handleScroll}
           scrollEventThrottle={16}
         >
+          <TouchableOpacity activeOpacity={1}>
           <Image
             style={{
               width: width *0.8,
@@ -471,6 +487,7 @@ const ReferralScreen = () => {
           <ReferralStatus />
           <ReferredUser />
           {/* <View style={{height:Dimensions.get("window").height * 0.01}}/> */}
+          </TouchableOpacity>
         </ScrollView>
         {!atBottom && (
           <TouchableOpacity

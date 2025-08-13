@@ -2,7 +2,7 @@ import { createSlice } from "@reduxjs/toolkit";
 import { onFetchGroupFeeds } from "../../reducer/group/GroupFeedsListApi";
 
 const initialState = {
-  data: {},
+  data: [],
   UpdatedData: [],
   success: false,
   message: "",

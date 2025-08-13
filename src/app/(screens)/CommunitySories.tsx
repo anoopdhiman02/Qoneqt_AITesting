@@ -29,12 +29,12 @@ const ShimmerItem = ({ delay = 0 }) => {
       Animated.sequence([
         Animated.timing(shimmerOpacity, {
           toValue: 0.8,
-          duration: 400,
+          duration: 600,
           useNativeDriver: true,
         }),
         Animated.timing(shimmerOpacity, {
           toValue: 0.3,
-          duration: 400,
+          duration: 600,
           useNativeDriver: true,
         }),
       ])
@@ -131,10 +131,10 @@ export default function CommunityStories({
               ]}
               style={styles.addCommunityGradient}
             >
-              <Ionicons name="add" size={20} color="white" />
+              <Ionicons name="add" size={35} color="white" />
             </LinearGradient>
             <View style={styles.addCommunityInfo}>
-              <Text style={styles.addCommunityText}>Group</Text>
+              <Text style={styles.addCommunityText}>New Group</Text>
             </View>
           </View>
         </TouchableOpacity>
@@ -150,7 +150,7 @@ export default function CommunityStories({
 
         {/* Show actual community items with animation */}
         {!showShimmer &&
-          communityData.map((community, index) => (
+          (communityData || []).slice(0, 24).map((community, index) => (
             <AnimatedCommunityItem
               key={community.id || index}
               community={community}
@@ -181,8 +181,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamilies.bold,
   },
   seeAllButton: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    padding: 2,
   },
   seeAllText: {
     color: "#a78bfa",
@@ -201,8 +200,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   addCommunityGradient: {
-    width: 60,
-    height: 60,
+    width: width * 0.15,
+    height: width * 0.15,
     borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
@@ -223,15 +222,15 @@ const styles = StyleSheet.create({
     marginRight: 0,
   },
   shimmerImageContainer: {
-    width: 60,
-    height: 60,
+    width: width * 0.15,
+    height: width * 0.15,
     borderRadius: 14,
     backgroundColor: "#2a2a3e",
-    marginBottom: 8,
+    marginBottom: 6,
   },
   shimmerTextLine: {
     width: 70,
-    height: 12,
+    height: 10,
     borderRadius: 6,
     backgroundColor: "#2a2a3e",
   },

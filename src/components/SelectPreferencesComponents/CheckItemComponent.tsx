@@ -1,68 +1,9 @@
-import { StyleSheet, Text, TouchableOpacity } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import React from "react";
 import { globalColors } from "@/assets/GlobalColors";
 import { fontFamilies } from "@/assets/fonts";
-import {
-  TravelIcon,
-  SportsIcon,
-  TourismIcon,
-  EntertainmentIcon,
-  Web30Icon,
-  NewsIcon,
-  CryptoCurrencyIcon,
-  BlockchainIcon,
-  FitnessIcon,
-  TechNewsIcon,
-  HealthAndFoodIcon,
-  CompanyIcon,
-  PoliticsIcon,
-  MusicIcon,
-  LanguageIcon,
-  JobIcon,
-  GeneralIcon,
-  StockIcon,
-  BusinessIcon,
-  TechnologyIcon,
-  EducationIcons,
-  CurrencyIcons,
-  CityIcons,
-  HealthcareIcon,
-} from "@/assets/DarkIcon";
+import { CheckCircleIcon } from "@/assets/DarkIcon";
 
-const iconMapping = {
-  travel: TravelIcon,
-  healthcare: HealthcareIcon,
-  sports: SportsIcon,
-  tourism: TourismIcon,
-  entertainment: EntertainmentIcon,
-  web3: Web30Icon,
-  news: NewsIcon,
-  cryptocurrency: CryptoCurrencyIcon,
-  blockchain: BlockchainIcon,
-  fitness: FitnessIcon,
-  technews: TechNewsIcon,
-  healthandfood: HealthAndFoodIcon,
-  company: CompanyIcon,
-  politics: PoliticsIcon,
-  music: MusicIcon,
-  language: LanguageIcon,
-  jobs: JobIcon,
-  general: GeneralIcon,
-  stocks: StockIcon,
-  business: BusinessIcon,
-  history: NewsIcon,
-  country: CompanyIcon,
-  science: PoliticsIcon,
-  community: BlockchainIcon,
-  technology: TechnologyIcon,
-  education: EducationIcons,
-  currency: CurrencyIcons,
-  city: CityIcons,
-};
-
-// const getIconForCategory = (categoryName) => {
-//   return iconMapping[categoryName.toLowerCase()] || EntertainmentIcon;
-// };
 
 const CheckItemComponent = ({ id, label, checked, onPress, categoryName }) => {
   return (
@@ -87,6 +28,15 @@ const CheckItemComponent = ({ id, label, checked, onPress, categoryName }) => {
       >
         {label}
       </Text>
+      {checked && (
+              <View style={{
+                position: "absolute",
+                right: -10,
+                top: -10
+              }}>
+                <CheckCircleIcon />
+              </View>
+            )}
     </TouchableOpacity>
   );
 };

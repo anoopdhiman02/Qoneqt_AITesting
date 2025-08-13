@@ -115,9 +115,19 @@ const BlockUserBottomSheet = ({
   onPressBlockButton,
   loading,
   screen_type,
+  block = true
 }: any) => {
   return (
-    <BottomSheetWrap bottomSheetRef={BlockUserRef} snapPoints={screen_type == 't_post'?["20%", "80%"]: ["20%","60"]}>
+    <BottomSheetWrap
+      bottomSheetRef={BlockUserRef}
+      snapPoints={
+        screen_type == "t_post"
+          ? ["20%", "80%"]
+          : block
+          ? ["20%", "60"]
+          : ["20%", "30"]
+      }
+    >
       <View style={{ alignItems: "center" }}>
         <View
           style={{
@@ -134,7 +144,7 @@ const BlockUserBottomSheet = ({
               textAlign: "center",
             }}
           >
-            Block profile
+            {block ? "Block" : "Unblock"} profile
           </Text>
         </View>
         <Text
@@ -148,143 +158,149 @@ const BlockUserBottomSheet = ({
           This will also block any other accounts that they may have or create
           in the future.
         </Text>
-        <View
-          style={{
-            flexDirection: "row",
-            width: "100%",
-            alignItems: "center",
-            marginTop: "5%",
-            marginBottom: "5%",
-          }}
-        >
-          <View
-            style={{
-              borderWidth: 1,
-              borderColor: globalColors.darkOrchidShade60,
-              backgroundColor: globalColors.darkOrchidShade60,
-              borderRadius: 6,
-              paddingHorizontal: "4%",
-              paddingVertical: "1.5%",
-            }}
-          >
-            <GradientText
+        {block && (
+          <>
+            <View
               style={{
-                fontFamily: fontFamilies.semiBold,
-                fontSize: 20,
-                color: globalColors.darkOrchid,
+                flexDirection: "row",
+                width: "100%",
+                alignItems: "center",
+                marginTop: "5%",
+                marginBottom: "5%",
               }}
             >
-              {"1"}
-            </GradientText>
-          </View>
-          <Text
-            style={{
-              color: globalColors.neutralWhite,
-              fontSize: 14,
-              marginLeft: "5%",
-            }}
-          >
-            They won’t be able to message you or find your profile or content on
-            Instagram.
-          </Text>
-        </View>
+              <View
+                style={{
+                  borderWidth: 1,
+                  borderColor: globalColors.darkOrchidShade60,
+                  backgroundColor: globalColors.darkOrchidShade60,
+                  borderRadius: 6,
+                  paddingHorizontal: "4%",
+                  paddingVertical: "1.5%",
+                }}
+              >
+                <GradientText
+                  style={{
+                    fontFamily: fontFamilies.semiBold,
+                    fontSize: 20,
+                    color: globalColors.darkOrchid,
+                  }}
+                >
+                  {"1"}
+                </GradientText>
+              </View>
+              <Text
+                style={{
+                  color: globalColors.neutralWhite,
+                  fontSize: 14,
+                  marginLeft: "5%",
+                }}
+              >
+                They won’t be able to message you or find your profile or
+                content on Instagram.
+              </Text>
+            </View>
 
-        <View
-          style={{
-            flexDirection: "row",
-            width: "100%",
-            alignItems: "center",
-            marginBottom: "5%",
-          }}
-        >
-          <View
-            style={{
-              borderWidth: 1,
-              borderColor: globalColors.darkOrchidShade60,
-              backgroundColor: globalColors.darkOrchidShade60,
-              borderRadius: 6,
-              paddingHorizontal: "4%",
-              paddingVertical: "1.5%",
-            }}
-          >
-            <GradientText
+            <View
               style={{
-                fontFamily: fontFamilies.semiBold,
-                fontSize: 20,
-                color: globalColors.darkOrchid,
+                flexDirection: "row",
+                width: "100%",
+                alignItems: "center",
+                marginBottom: "5%",
               }}
             >
-              {"2"}
-            </GradientText>
-          </View>
-          <Text
-            style={{
-              color: globalColors.neutralWhite,
-              fontSize: 14,
-              marginLeft: "5%",
-            }}
-          >
-            They won’t be noticed that you blocked them.
-          </Text>
-        </View>
+              <View
+                style={{
+                  borderWidth: 1,
+                  borderColor: globalColors.darkOrchidShade60,
+                  backgroundColor: globalColors.darkOrchidShade60,
+                  borderRadius: 6,
+                  paddingHorizontal: "4%",
+                  paddingVertical: "1.5%",
+                }}
+              >
+                <GradientText
+                  style={{
+                    fontFamily: fontFamilies.semiBold,
+                    fontSize: 20,
+                    color: globalColors.darkOrchid,
+                  }}
+                >
+                  {"2"}
+                </GradientText>
+              </View>
+              <Text
+                style={{
+                  color: globalColors.neutralWhite,
+                  fontSize: 14,
+                  marginLeft: "5%",
+                }}
+              >
+                They won’t be noticed that you blocked them.
+              </Text>
+            </View>
 
-        <View
-          style={{
-            flexDirection: "row",
-            width: "100%",
-            alignItems: "center",
-            marginBottom: "5%",
-          }}
-        >
-          <View
-            style={{
-              borderWidth: 1,
-              borderColor: globalColors.darkOrchidShade60,
-              backgroundColor: globalColors.darkOrchidShade60,
-              borderRadius: 6,
-              paddingHorizontal: "4%",
-              paddingVertical: "1.5%",
-            }}
-          >
-            <GradientText
+            <View
               style={{
-                fontFamily: fontFamilies.semiBold,
-                fontSize: 20,
-                color: globalColors.darkOrchid,
+                flexDirection: "row",
+                width: "100%",
+                alignItems: "center",
+                marginBottom: "5%",
               }}
             >
-              {"3"}
-            </GradientText>
-            {/* <Text style={{ color: "#B898FA", fontSize: 20 }}>3</Text> */}
-          </View>
-          <Text
-            style={{
-              color: globalColors.neutralWhite,
-              fontSize: 14,
-              marginLeft: "5%",
-            }}
-          >
-            You can unblock them at any time in settings.
-          </Text>
-        </View>
+              <View
+                style={{
+                  borderWidth: 1,
+                  borderColor: globalColors.darkOrchidShade60,
+                  backgroundColor: globalColors.darkOrchidShade60,
+                  borderRadius: 6,
+                  paddingHorizontal: "4%",
+                  paddingVertical: "1.5%",
+                }}
+              >
+                <GradientText
+                  style={{
+                    fontFamily: fontFamilies.semiBold,
+                    fontSize: 20,
+                    color: globalColors.darkOrchid,
+                  }}
+                >
+                  {"3"}
+                </GradientText>
+                {/* <Text style={{ color: "#B898FA", fontSize: 20 }}>3</Text> */}
+              </View>
+              <Text
+                style={{
+                  color: globalColors.neutralWhite,
+                  fontSize: 14,
+                  marginLeft: "5%",
+                }}
+              >
+                You can unblock them at any time in settings.
+              </Text>
+            </View>
+          </>
+        )}
 
         <Button1
           isLoading={loading}
-          title="Block"
+          title={block ? "Block" : "Unblock"}
           onPress={onPressBlockButton}
-          containerStyle={{marginHorizontal: '2.5%'}}
+          containerStyle={{ marginHorizontal: "2.5%" }}
         />
-        <TouchableOpacity onPress={onPressBlockButton}>
-          <GradientText
-            style={{
-              fontFamily: fontFamilies.semiBold,
-              fontSize: 17,
-              color: globalColors.darkOrchid,
-            }}
-          >
-            {"Block & report"}
-          </GradientText>
-        </TouchableOpacity>
+        {block && (
+          <TouchableOpacity onPress={onPressBlockButton}>
+            <GradientText
+              style={{
+                fontFamily: fontFamilies.semiBold,
+                fontSize: 17,
+                color: globalColors.darkOrchid,
+              }}
+            >
+              {"Block & report"}
+            </GradientText>
+          </TouchableOpacity>
+        )}
       </View>
     </BottomSheetWrap>
   );

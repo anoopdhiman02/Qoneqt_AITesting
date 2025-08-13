@@ -43,7 +43,6 @@ const CommentSectionComponent: React.FC<CommentSectionComponentProps> = ({
   categoryId,
   catclick,
 }) => {
-
   return (
     <>
       <View

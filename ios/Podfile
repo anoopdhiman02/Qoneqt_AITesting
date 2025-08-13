@@ -8,8 +8,10 @@ ENV['RCT_NEW_ARCH_ENABLED'] = podfile_properties['newArchEnabled'] == 'true' ? '
 ENV['EX_DEV_CLIENT_NETWORK_INSPECTOR'] = podfile_properties['EX_DEV_CLIENT_NETWORK_INSPECTOR']
 
 platform :ios, '15.6'
+
 install! 'cocoapods',
-  :deterministic_uuids => false
+  :deterministic_uuids => false,
+  :warn_for_unused_master_specs_repo => false
 
 prepare_react_native_project!
 
@@ -25,8 +27,7 @@ target 'Qoneqt' do
 
   use_react_native!(
     :path => config[:reactNativePath],
-    :hermes_enabled => podfile_properties['expo.jsEngine'] == nil || podfile_properties['expo.jsEngine'] == 'hermes',
-    # An absolute path to your application root.
+    :hermes_enabled => podfile_properties['expo.jsEngine'].nil? || podfile_properties['expo.jsEngine'] == 'hermes',
     :app_path => "#{Pod::Config.instance.installation_root}/..",
     :privacy_file_aggregation_enabled => podfile_properties['apple.privacyManifestAggregationEnabled'] != 'false',
   )
@@ -39,18 +40,18 @@ target 'Qoneqt' do
       :ccache_enabled => podfile_properties['apple.ccacheEnabled'] == 'true',
     )
 
-    # Set DEFINES_MODULE to a consistent value for conflicting pods
+    # Ensure DEFINES_MODULE is consistent for conflicting pods
+    conflicting_pods = ["expo-dev-menu", "Main", "ReactNativeCompatibles", "SafeAreaView", "Vendored"]
     installer.pods_project.targets.each do |target|
-      if ["expo-dev-menu", "Main", "ReactNativeCompatibles", "SafeAreaView", "Vendored"].include?(target.name)
+      if conflicting_pods.include?(target.name)
         target.build_configurations.each do |config|
           config.build_settings['DEFINES_MODULE'] = 'YES'
         end
       end
     end
-    
-    # This is necessary for Xcode 14, because it signs resource bundles by default
-    installer.target_installation_results.pod_target_installation_results
-      .each do |pod_name, target_installation_result|
+
+    # For Xcode 14+, disable code signing on resource bundles
+    installer.target_installation_results.pod_target_installation_results.each do |pod_name, target_installation_result|
       target_installation_result.resource_bundle_targets.each do |resource_bundle_target|
         resource_bundle_target.build_configurations.each do |config|
           config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
@@ -69,7 +70,6 @@ target 'Qoneqt' do
 end
 
 target 'OneSignalNotificationServiceExtension' do
-  # Use the same framework setting as the main target
   use_frameworks! :linkage => $shared_frameworks_setting
   pod 'OneSignalXCFramework', '>= 5.0', '< 6.0'
 end

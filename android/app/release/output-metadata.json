@@ -1,0 +1,20 @@
+{
+  "version": 3,
+  "artifactType": {
+    "type": "APK",
+    "kind": "Directory"
+  },
+  "applicationId": "com.qoneqt.android",
+  "variantName": "release",
+  "elements": [
+    {
+      "type": "SINGLE",
+      "filters": [],
+      "attributes": [],
+      "versionCode": 122,
+      "versionName": "3.1.42",
+      "outputFile": "app-release.apk"
+    }
+  ],
+  "elementType": "File"
+}

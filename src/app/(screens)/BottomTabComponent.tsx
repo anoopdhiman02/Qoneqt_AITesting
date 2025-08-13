@@ -38,7 +38,7 @@ const BottomTabComponent = ({
   }
 
   return (
-    <View>
+    <View style={{backgroundColor:globalColors.neutral2}}>
       {!isConnected && (
         <View
           style={{

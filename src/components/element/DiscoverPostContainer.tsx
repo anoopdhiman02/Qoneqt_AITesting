@@ -97,9 +97,9 @@ const DiscoverPostContainer = ({
       if (item?.id == data?.id) {
         return {
           ...item,
-          like_byMe: !isLike
-            ? [...item.like_byMe, userId]
-            : item.like_byMe.filter((id) => id !== userId),
+          likeByMe: !isLike
+            ? [...item.likeByMe, userId]
+            : item.likeByMe.filter((id) => id !== userId),
           like_count: !isLike ? item.like_count + 1 : item.like_count - 1,
         };
       }
@@ -318,6 +318,7 @@ const DiscoverPostContainer = ({
               }
               isHome={true}
               type={data?.file_type}
+              display_height={data?.display_height || []}
             />
           </TouchableOpacity>
         </ScrollView>
@@ -333,7 +334,7 @@ const DiscoverPostContainer = ({
           }}
         >
           <PostLikeComponent
-            Liked={(data?.likeby_me|| data?.like_ByMe || data?.likeByMe)?.length > 0 ? 1 : 0}
+            Liked={(data?.likeByMe || [])?.length > 0 ? 1 : 0}
             count={(data?.like_count || 0) + (data?.likes_aggregate?.aggregate?.count || 0)}
             postId={data?.id}
             updateLikeStatus={updateLikeStatus}

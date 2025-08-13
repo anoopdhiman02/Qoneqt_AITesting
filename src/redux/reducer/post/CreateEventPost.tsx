@@ -5,19 +5,16 @@ import axiosInstance from "@/utils/axiosInstance";
 import { ENDPOINTS } from "@/utils/endPoints";
 
 interface CreateEventPostPayload {
-  file?: {
-    uri: string;
-    name: string;
-    type: string;
-  };
-  userId: number | string;
+  file?: string;
+  userId?: number | string;
   desc?: string;
   postType?: number;
   group_id?: number;
   catId?: number | string;
   attachType?: string;
-  eventName: string;
+  eventName?: string;
   imgHeight?: any;
+  post_id?:any;
 }
 
 // Thunk to create a post
@@ -32,7 +29,8 @@ export const createEventPost = createAsyncThunk(
     attachType,
     catId,
     eventName,
-    imgHeight
+    imgHeight,
+    post_id
   }: CreateEventPostPayload) => {
     const data = new FormData();
 
@@ -41,11 +39,12 @@ export const createEventPost = createAsyncThunk(
     data.append("user_id", String(userId));
     data.append("description", desc || "");
     data.append("post_type", String(postType || 0));
-    data.append("group_id", String(group_id || ""));
-    data.append("cat_id", String(catId || "1"));
+    data.append("post_id", String(post_id||0));
+    // data.append("group_id", String(group_id || ""));
+    // data.append("cat_id", String(catId || "1"));
     data.append("attachment", "image");
     data.append("fileData", file);
-    data.append("event_name", eventName);
+    // data.append("event_name", eventName);
     data.append("img_height", imgHeight);
 
 

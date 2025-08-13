@@ -20,7 +20,6 @@ export const onDeletePost = createAsyncThunk(
         fromApp: 1,
       },
     };
-    console.log("options", JSON.stringify(options))
     try {
       const response = await axiosInstance.request(options);
       return response.data;

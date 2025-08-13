@@ -12,7 +12,7 @@ export interface PostDetailModel {
   like_count: number;
   time: string;
   post_by: PostBy;
-  like_byme: LikeByme[];
+  likeByMe: LikeByme[];
   likes_aggregate: LikesAggregate;
   post_comments_aggregate: PostCommentsAggregate;
   post_comments: PostComment[];

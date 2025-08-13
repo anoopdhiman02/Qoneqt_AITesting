@@ -8,6 +8,10 @@ import { fontFamilies } from "@/assets/fonts";
 import { globalColors } from "@/assets/GlobalColors";
 import ShimmerPlaceholder from "react-native-shimmer-placeholder";
 import moment from "moment";
+import { Dimensions } from "react-native";
+import ImageView from "react-native-image-viewing";
+
+const { height, width } = Dimensions.get("window");
 
 export interface ProfileDetailsProps {
   detailsProps: DetailsProps;
@@ -140,65 +144,87 @@ const ProfileDetailComponent = ({ data, isLoading }) => {
   }
 
   return (
+    <TouchableOpacity activeOpacity={1}>
       <View
         style={{
           width: "100%",
-          alignItems:'center',
+          alignItems: "center",
           padding: 8,
         }}
       >
-
-          {/* Profile Picture (Small) */}
-          <TouchableOpacity style={{alignItems: "center", justifyContent: "center", width: 100, height: 100, borderRadius: 50, overflow: 'hidden', borderWidth: 2, borderColor: globalColors.neutralWhite}} onPress={toggleModal}>
-            <ImageFallBackUser
-              imageData={data?.profile_pic}
-              fullName={data?.full_name}
-              widths={100}
-              heights={100}
-              borders={50}
-            />
-          </TouchableOpacity>
-          <View
-        style={{ flexDirection: "row", marginTop: "5%", width: '100%', justifyContent: 'center' }}
-      >
-        <Text
+        {/* Profile Picture (Small) */}
+        <TouchableOpacity
           style={{
-            fontSize: 20,
-            fontFamily: fontFamilies.bold,
-            color: globalColors.neutralWhite,
+            alignItems: "center",
+            justifyContent: "center",
+            width: 100,
+            height: 100,
+            borderRadius: 50,
+            overflow: "hidden",
+            borderWidth: 2,
+            borderColor: globalColors.neutralWhite,
+          }}
+          onPress={toggleModal}
+        >
+          <ImageFallBackUser
+            imageData={data?.profile_pic}
+            fullName={data?.full_name}
+            widths={100}
+            heights={100}
+            borders={50}
+          />
+        </TouchableOpacity>
+        <View
+          style={{
+            flexDirection: "row",
+            marginTop: "5%",
+            width: "100%",
+            justifyContent: "center",
           }}
         >
-          {data?.full_name}
-        </Text>
+          
+          <Text
+            style={{
+              fontSize: 20,
+              fontFamily: fontFamilies.bold,
+              color: globalColors.neutralWhite,
+            }}
+          >
+            {data?.full_name}
+          </Text>
 
-        {data?.kyc_status == 1 && (
-          <VerifiedIcon style={{ marginLeft: 5, marginTop: 2 }} />
+          {data?.kyc_status == 1 && (
+            <VerifiedIcon style={{ marginLeft: 5, marginTop: 2 }} />
+          )}
+        </View>
+        {data?.username && (
+          <Text
+            style={{
+              fontSize: 14,
+              fontFamily: fontFamilies.regular,
+              color: globalColors.neutral_white[300],
+              marginTop: 4,
+            }}
+          >
+            @{data?.username || ""}
+          </Text>
         )}
-      </View>
-      {data?.username && <Text
-        style={{
-          fontSize: 14,
-          fontFamily: fontFamilies.regular,
-          color: globalColors.neutral_white[300],
-          marginTop: 4,
-        }}
-      >
-        @{data?.username || '' }
-      </Text>}
-      {data?.about && <Text
-        style={{
-          fontSize: 14,
-          fontFamily: fontFamilies.regular,
-          color: globalColors.neutral_white[300],
-          marginTop:4,
-          width: '100%',
-          textAlign: 'center',
-        }}
-      >
-        {data?.about || '' }
-      </Text>}
+        {data?.about && (
+          <Text
+            style={{
+              fontSize: 14,
+              fontFamily: fontFamilies.regular,
+              color: globalColors.neutral_white[300],
+              marginTop: 4,
+              width: "100%",
+              textAlign: "center",
+            }}
+          >
+            {data?.about || ""}
+          </Text>
+        )}
 
-       {/* {data?.time ? (
+        {/* {data?.time ? (
         <View
           style={{
             flexDirection: "row",
@@ -231,8 +257,8 @@ const ProfileDetailComponent = ({ data, isLoading }) => {
           --
         </Text>
       )} */}
-      
-      <View
+
+        <View
           style={{
             flexDirection: "row",
             alignItems: "center",
@@ -243,44 +269,65 @@ const ProfileDetailComponent = ({ data, isLoading }) => {
             padding: 10,
           }}
         >
-          <CustomCountView count={data?.post_count} title="Posts" onPress={()=>{}}/>
-          <CustomCountView count={data?.follower_count} title="Followers" onPress={() => router.push({
-            pathname: "/FollowersList",
-            params: { profileId: data?.id },
-          })}/>
-          <CustomCountView count={data?.following_count} title="Following" onPress={() => router.push({
+          <CustomCountView
+            count={data?.post_count}
+            title="Posts"
+            onPress={() => {}}
+          />
+          <CustomCountView
+            count={data?.follower_count}
+            title="Followers"
+            onPress={() =>
+              router.push({
+                pathname: "/FollowersList",
+                params: { profileId: data?.id },
+              })
+            }
+          />
+          <CustomCountView
+            count={data?.following_count}
+            title="Following"
+            onPress={() =>
+              router.push({
                 pathname: "/FollowingsList",
                 params: { profileId: data?.id },
-              })}/>
-
+              })
+            }
+          />
         </View>
-          {/* Full-Screen Image Modal */}
-          <Modal
-            visible={isModalVisible}
-            transparent={true}
-            animationType="fade"
-            onRequestClose={toggleModal}
+        {/* Full-Screen Image Modal */}
+        <ImageView
+                  images={[{uri: ImageUrlConcated(data?.profile_pic) }]}
+                  imageIndex={0}
+                  visible={isModalVisible}
+                  onRequestClose={toggleModal}
+                />
+        {/* <Modal
+          visible={isModalVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={toggleModal}
+        >
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              backgroundColor: "rgba(0,0,0,0.9)",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+            onPress={toggleCloseModal}
           >
-            <TouchableOpacity
-              style={{
-                flex: 1,
-                backgroundColor: "rgba(0,0,0,0.9)",
-                justifyContent: "center",
-                alignItems: "center",
-              }}
-              onPress={toggleCloseModal}
-            >
-              {/* Expanded Image */}
-              <ImageFallBackUser
-                imageData={data?.profile_pic}
-                fullName={data?.full_name}
-                widths={250}
-                heights={250}
-                borders={5}
-              />
-            </TouchableOpacity>
-          </Modal>
-        </View>
+            <ImageFallBackUser
+              imageData={data?.profile_pic}
+              fullName={data?.full_name}
+              widths={250}
+              heights={250}
+              borders={5}
+            />
+          </TouchableOpacity>
+        </Modal> */}
+      </View>
+    </TouchableOpacity>
   );
 };
 

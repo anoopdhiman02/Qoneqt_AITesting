@@ -32,8 +32,8 @@ import { fontFamilies } from "@/assets/fonts";
 import useGroupMessageSupabaseViewModel from "../../viewModel/SubgroupChatViewModel";
 import { useAppStore } from "@/zustand/zustandStore";
 import moment from "moment";
-import { R2_PUBLIC_URL } from "@/utils/constants"; // Add this to your existing imports
-import AttachmentDrawer from "./AttachmentDrawer"; // Adjust path as needed
+import { R2_PUBLIC_URL } from "@/utils/constants";
+import AttachmentDrawer from "./AttachmentDrawer";
 import useUserChatDetailViewModel from "@/app/(features)/(chat)/viewModel/UserChatDetailViewModel";
 import { showToast } from "@/components/atom/ToastMessageComponent";
 import { determineAttachmentType, uploadToR2 } from "@/utils/r2Uploads";
@@ -43,7 +43,8 @@ import BottomSheet from "@gorhom/bottom-sheet";
 import { ArrowLeftBigIcon } from "@/assets/DarkIcon";
 import Track_Player from "@/components/AudioPlayer/TrackPlayer";
 import MediaPost from "@/components/MediaPost";
-import { ActivityIndicator } from "react-native"; // Add this for loading indicator
+import { ActivityIndicator } from "react-native";
+import RichText from "@/utils/RichText";
 
 const { width, height } = Dimensions.get("window");
 
@@ -86,7 +87,6 @@ const mockMembers = [
   },
 ];
 
-
 const ImagePreview = ({ imageUri, onRemove, fileName }) => {
   if (!imageUri) return null;
 
@@ -94,13 +94,9 @@ const ImagePreview = ({ imageUri, onRemove, fileName }) => {
     <View style={stylesImage.previewContainer}>
       <View style={stylesImage.imageContainer}>
         <Image source={{ uri: imageUri }} style={stylesImage.previewImage} />
-
-        {/* Remove button */}
         <TouchableOpacity style={stylesImage.removeButton} onPress={onRemove}>
           <Ionicons name="close-circle" size={24} color="#FF6B6B" />
         </TouchableOpacity>
-
-        {/* Image info overlay */}
         <View style={stylesImage.imageInfo}>
           <View style={stylesImage.imageTypeIcon}>
             <Ionicons name="image" size={16} color="#FFFFFF" />
@@ -140,21 +136,16 @@ export default function CommunityOtherChat() {
     subgroup: { name: subgroupName, icon: "chatbubbles" },
   };
 
-  // Add this state variable with your other useState hooks
   const [showAttachmentDrawer, setShowAttachmentDrawer] = useState(false);
 
-  // Add this function to handle attachment selection
   const handleAttachmentSelect = (option) => {
     console.log("Selected attachment option:", option);
 
     switch (option.id) {
       case "camera":
-        // Handle camera functionality
-        // You can use expo-image-picker or react-native-image-picker
         onTakeSelfieHandler();
         break;
       case "gallery":
-        // Handle gallery selection
         onPressGallary();
         break;
       default:
@@ -172,7 +163,6 @@ export default function CommunityOtherChat() {
     onTakeSelfieHandler,
   } = useUserChatDetailViewModel();
 
-  // Add function to remove selected image
   const handleRemoveImage = () => {
     setImageData(null);
     setImageFileData(null);
@@ -186,171 +176,26 @@ export default function CommunityOtherChat() {
   const [showMembers, setShowMembers] = useState(false);
   const [activeTab, setActiveTab] = useState("Chats");
   const [showMediaTab, setShowMediaTab] = useState(false);
-
   const [sendDisabled, setSendDisabled] = useState(false);
-
-  const posts = [];
-
-  // Filter posts that mention this community
-  const communityPosts = posts.filter((post) => {
-    const postContent =
-      typeof post.content === "string"
-        ? post.content
-        : Array.isArray(post.content)
-        ? post.content.join(" ")
-        : "";
-    const communityName =
-      typeof community.name === "string"
-        ? community.name
-        : Array.isArray(community.name)
-        ? community.name.join(" ")
-        : "";
-    return postContent.toLowerCase().includes(communityName.toLowerCase());
-  });
 
   const {
     supabaseGroupMedia,
-    //  fetchMessagesSupabase,
     fetchInitialMessages,
-    fetchOlderMessages, // New function
-    fetchMediaSupabase,
+    fetchMessagesWithPagination,
     supabaseGroupChat,
     clearChat,
     deleteMessage,
     updateSeen,
     insertMessage,
-    isLoadingOlder, // New state
-    hasMoreMessages, // New state
-    isInitialLoad, // New state
+    isLoadingMore,
+    hasMoreMessages,
+    isInitialLoad,
+    onLoadMore,
   } = useGroupMessageSupabaseViewModel({
     uid: userId,
     groupId: groupId,
     subgroupId: subgroupId,
   });
-
-  // Add these new state variables
-  const [isUserScrolling, setIsUserScrolling] = useState(false);
-  const [shouldAutoScroll, setShouldAutoScroll] = useState(false);
-  const [initialMessagesLoaded, setInitialMessagesLoaded] = useState(false);
-  const [previousMessageCount, setPreviousMessageCount] = useState(0);
-  const [savedScrollPosition, setSavedScrollPosition] = useState(0);
-  const [currentScrollY, setCurrentScrollY] = useState(0);
-  const [isContentReady, setIsContentReady] = useState(false); // New state for content readiness
-  const scrollViewRef = useRef<ScrollView>(null);
-  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const isFirstLoadRef = useRef(true);
-  const contentSizeRef = useRef({ width: 0, height: 0 });
-  const hasScrolledToBottomRef = useRef(false); // Track if we've scrolled to bottom
-
-  // Handle scroll to load older messages with better detection
-  const handleScroll = useCallback(
-    (event: any) => {
-      const { contentOffset, contentSize, layoutMeasurement } =
-        event.nativeEvent;
-      const scrollY = contentOffset.y;
-
-      setCurrentScrollY(scrollY);
-      contentSizeRef.current = contentSize;
-
-      // Set user is scrolling
-      setIsUserScrolling(true);
-
-      // Clear existing timeout
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-
-      // Set timeout to detect when user stops scrolling
-      scrollTimeoutRef.current = setTimeout(() => {
-        setIsUserScrolling(false);
-      }, 200);
-
-      // Better pagination trigger - check if user is near the top
-      const isNearTop = scrollY <= 200;
-
-      if (isNearTop && hasMoreMessages && !isLoadingOlder && !isUserScrolling) {
-        console.log("Triggering pagination...");
-        fetchOlderMessages();
-      }
-    },
-    [hasMoreMessages, isLoadingOlder, fetchOlderMessages]
-  );
-
-  // Handle content size change to position at bottom initially
-  const handleContentSizeChange = useCallback(
-    (contentWidth: number, contentHeight: number) => {
-      if (
-        !hasScrolledToBottomRef.current &&
-        !isInitialLoad &&
-        supabaseGroupChat.length > 0
-      ) {
-        // Immediately scroll to bottom without animation on first load
-        if (scrollViewRef.current) {
-          scrollViewRef.current.scrollTo({
-            y: contentHeight,
-            animated: false,
-          });
-          hasScrolledToBottomRef.current = true;
-          setIsContentReady(true);
-        }
-      }
-    },
-    [isInitialLoad, supabaseGroupChat.length]
-  );
-
-  // Save scroll position when tab changes
-  useEffect(() => {
-    if (activeTab !== "Chats") {
-      setSavedScrollPosition(currentScrollY);
-    }
-  }, [activeTab, currentScrollY]);
-
-  // Restore scroll position when returning to Chats tab
-  useEffect(() => {
-    if (
-      activeTab === "Chats" &&
-      savedScrollPosition > 0 &&
-      scrollViewRef.current &&
-      hasScrolledToBottomRef.current
-    ) {
-      setTimeout(() => {
-        scrollViewRef.current?.scrollTo({
-          y: savedScrollPosition,
-          animated: false,
-        });
-      }, 100);
-    }
-  }, [activeTab, savedScrollPosition]);
-
-  // Handle new messages - only scroll if it's a new message from current user
-  useEffect(() => {
-    if (
-      hasScrolledToBottomRef.current &&
-      supabaseGroupChat.length > previousMessageCount
-    ) {
-      const newMessages = supabaseGroupChat.slice(previousMessageCount);
-      const hasNewMessageFromCurrentUser = newMessages.some(
-        (msg) => msg.senderId == userId
-      );
-
-      // Only auto-scroll if user sent a message or shouldAutoScroll is set
-      if (hasNewMessageFromCurrentUser || shouldAutoScroll) {
-        setTimeout(() => {
-          if (scrollViewRef.current && !isUserScrolling) {
-            scrollViewRef.current.scrollToEnd({ animated: true });
-          }
-        }, 100);
-        setShouldAutoScroll(false);
-      }
-    }
-    setPreviousMessageCount(supabaseGroupChat.length);
-  }, [
-    supabaseGroupChat.length,
-    previousMessageCount,
-    userId,
-    shouldAutoScroll,
-    isUserScrolling,
-  ]);
 
   const handleSendMessage = async () => {
     if (message.trim() === "" && !imageData) return;
@@ -358,16 +203,15 @@ export default function CommunityOtherChat() {
 
     let r2UploadResult = null;
 
-    // Set flag to auto-scroll after sending
-    setShouldAutoScroll(true);
+    // Clear input immediately for better UX
+    setMessage("");
 
-    // If there's an image, send it along with the message
     if (imageData) {
       const attachmentType = determineAttachmentType(imageFileData.name);
       if (attachmentType != "image") {
         showToast({ type: "error", text1: "Please select proper image" });
+        setMessage(message); // Restore text on error
         setSendDisabled(false);
-        setShouldAutoScroll(false);
         return null;
       }
       try {
@@ -379,179 +223,37 @@ export default function CommunityOtherChat() {
       } catch (error) {
         console.log("Error uploading to R2:", error);
         setSendDisabled(false);
-        setShouldAutoScroll(false);
         return null;
       }
       insertMessage({
-        message: message.trim() || "", // Allow empty message if there's an image
+        message: message.trim() || "",
         notificationType: "group_chat",
         type: "image",
-        attach: r2UploadResult?.key, // Pass the image file data
+        attach: r2UploadResult?.key,
       });
+      setImageFileData(null);
+      setImageData("");
+      setSendDisabled(false);
     } else {
       insertMessage({
         message: message.trim(),
         notificationType: "group_chat",
         attach: "",
       });
+      setSendDisabled(false);
     }
-
-    // Clear the input and image after sending
-    setMessage("");
-    setImageData(null);
-    setImageFileData(null);
-    setSendDisabled(false);
   };
 
-  // Convert posts to message format for display in chat
-  const postMessages = communityPosts.map((post, index) => ({
-    id: `post-${post.id}`,
-    userId: post.id,
-    userName: post.author.name,
-    avatar: post.author.avatar,
-    message: `📝 ${post.content}`,
-    timestamp: post.timestamp,
-    reactions: [],
-    isPost: true,
-    post: post,
-  }));
-
-  // Combine regular messages with post messages
-  const allMessages = [...messages, ...postMessages];
-
-  const flatListRef = useRef(null);
-  const typingAnimation = useRef(new Animated.Value(0)).current;
-
-  // Simulate typing indicator
-  useEffect(() => {
-    const typingTimeout = setTimeout(() => {
-      const randomTyping = Math.random() > 0.6;
-      setIsTyping(randomTyping);
-
-      if (randomTyping) {
-        Animated.loop(
-          Animated.sequence([
-            Animated.timing(typingAnimation, {
-              toValue: 1,
-              duration: 500,
-              useNativeDriver: true,
-            }),
-            Animated.timing(typingAnimation, {
-              toValue: 0,
-              duration: 500,
-              useNativeDriver: true,
-            }),
-          ])
-        ).start();
-
-        setTimeout(() => {
-          setIsTyping(false);
-          const randomUser =
-            mockMembers[Math.floor(Math.random() * mockMembers.length)];
-          const newMessage = {
-            id: messages.length + 1,
-            userId: randomUser.id,
-            userName: randomUser.name,
-            avatar: randomUser.avatar,
-            message: "Just checking in! How's everyone doing today? 😊",
-            timestamp: new Date().toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-            reactions: [],
-          };
-          setMessages((prevMessages) => [...prevMessages, newMessage]);
-        }, 3000);
-      }
-    }, 10000); // Show typing indicator every 10 seconds
-
-    return () => clearTimeout(typingTimeout);
-  }, [messages]);
-
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    if (flatListRef.current) {
-      setTimeout(() => {
-        flatListRef.current.scrollToEnd({ animated: true });
-      }, 100);
-    }
-  }, [messages, postMessages]);
+  const subgroupMessageListRef = useRef(null);
 
   const handleBackPress = () => {
     navigation.goBack();
   };
-  // Render a single post item
-  const renderPostItem = (post) => (
-    <View key={post.id} style={styles.postContainer}>
-      {/* Post Header */}
-      <View style={styles.postHeader}>
-        <View style={styles.authorInfo}>
-          <Image
-            source={{ uri: post.author.avatar }}
-            style={styles.authorAvatar}
-          />
-          <View style={styles.authorDetails}>
-            <View style={styles.authorNameRow}>
-              <Text style={styles.authorName}>{post.author.name}</Text>
-              <View style={styles.communityBadge}>
-                <Text style={styles.communityText}>
-                  {post.author.community}
-                </Text>
-              </View>
-            </View>
-            <Text style={styles.authorUsername}>
-              {post.author.username} · {post.timestamp}
-            </Text>
-          </View>
-        </View>
-        <TouchableOpacity style={styles.moreButton}>
-          <Ionicons name="ellipsis-horizontal" size={20} color="#8954F6" />
-        </TouchableOpacity>
-      </View>
 
-      {/* Post Content */}
-      <Text style={styles.postContent}>{post.content}</Text>
-
-      {/* Post Media */}
-      {post.hasMedia && (
-        <View style={styles.mediaContainer}>
-          <Image source={{ uri: post.mediaUrl }} style={styles.postMedia} />
-        </View>
-      )}
-
-      {/* Post Actions */}
-      <View style={styles.postActions}>
-        <TouchableOpacity style={styles.actionButton}>
-          <Ionicons name="chatbubble-outline" size={18} color="#8954F6" />
-          <Text style={styles.actionText}>{post.commentsCount}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.actionButton}>
-          <Ionicons name="repeat-outline" size={18} color="#8954F6" />
-          <Text style={styles.actionText}>{post.reposts}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.actionButton}>
-          <Ionicons name="heart-outline" size={18} color="#8954F6" />
-          <Text style={styles.actionText}>{post.likes}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.actionButton}>
-          <Ionicons name="share-outline" size={18} color="#8954F6" />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
-  // useEffect(() => {
-  //   fetchMessagesSupabase();
-  //   fetchMediaSupabase();
-  // }, [groupId]);
-
-  //group chats by date
-  const groupChatsByDate = (chats: any[]) => {
-    const groupedChats = chats.reduce((acc, chat) => {
-      const date = new Date(chat.created_at).toDateString(); // Group by date only
+  // Group chats by date and flatten for FlatList (same as UserChatScreen)
+  const flattenedChatData = useMemo(() => {
+    const groupedChats = supabaseGroupChat.reduce((acc, chat) => {
+      const date = new Date(chat.created_at).toDateString();
       if (!acc[date]) {
         acc[date] = [];
       }
@@ -568,378 +270,240 @@ export default function CommunityOtherChat() {
         ),
       })
     );
-    return sortedGroupedChats;
-  };
 
-  const Chats = () => {
-    const [isModalVisible, setModalVisible] = useState(false);
-    const [selectedImage, setSelectedImage] = useState(null);
+    // Flatten the data for FlatList
+    const flatData = [];
+    sortedGroupedChats.forEach((group) => {
+      // Add date header
+      flatData.push({
+        type: "date",
+        date: group.date,
+        id: `date-${group.date}`,
+      });
+      // Add messages
+      group.chats.forEach((chat) => {
+        flatData.push({
+          type: "message",
+          ...chat,
+          id: chat._id,
+        });
+      });
+    });
 
-    const toggleModal = (imageUri) => {
-      if (imageUri) {
-        setSelectedImage(imageUri);
-        setModalVisible(true);
-      }
-    };
+    return flatData.reverse(); // Reverse to show latest messages at bottom
+  }, [supabaseGroupChat]);
 
-    const toggleCloseModal = () => {
-      setModalVisible(false);
-      setSelectedImage(null);
-    };
+  useEffect(() => {
+    fetchMessagesWithPagination(1, 20, true); // Reset data on conversation change
+    updateSeen();
+  }, [groupId, subgroupId, userId]);
 
-   const UserAvatar = useCallback(
-     ({ item }) => (
-       <View style={{ marginRight: 8 }}>
-         <ImageFallBackUser
-           imageData={item.user.avatar || ""}
-           fullName={item.user.name}
-           widths={32}
-           heights={32}
-           borders={16}
-         />
-       </View>
-     ),
-     []
-   );
+  const [isModalVisible, setModalVisible] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
 
-    const ImageTag = ({ item }) => {
-            // console.log("Original attachment:", JSON.stringify(item));
-    
-            const imageUrls = item
-              ? item.split(",").filter((url) => url.trim() !== "")
-              : [];
-    
-            // console.log("Split URLs:", imageUrls);
-            // console.log("URLs length:", imageUrls.length);
-            // console.log("First URL:", imageUrls[0]);
-    
-            let itemImg = "";
-            if (imageUrls.length === 0) {
-              itemImg = item || ""; // Use the attachment string, not the whole item
-            } else {
-              itemImg = imageUrls[0];
-            }
-    
-            // console.log("Final itemImg:", itemImg);
-    
-            return (
-              <Image
-                source={{
-                  uri: R2_PUBLIC_URL + itemImg,
-                }}
-                style={styles.postMessageImage}
-                resizeMode="cover"
-              />
-            );
-          };
-    
+  const toggleModal = useCallback((imageUri) => {
+    if (imageUri) {
+      setSelectedImage(imageUri);
+      setModalVisible(true);
+    }
+  }, []);
 
-    const sortedGroupedChats = groupChatsByDate(supabaseGroupChat || []);
+  const toggleCloseModal = useCallback(() => {
+    setModalVisible(false);
+    setSelectedImage(null);
+  }, []);
 
-    if (isInitialLoad) {
-      return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#8954F6" />
-          <Text style={styles.loadingText}>Loading messages...</Text>
-        </View>
-      );
+  const UserAvatar = useCallback(
+    ({ item }) => (
+      <View style={{ marginRight: 8 }}>
+        <ImageFallBackUser
+          imageData={item.user.avatar || ""}
+          fullName={item.user.name}
+          widths={32}
+          heights={32}
+          borders={16}
+        />
+      </View>
+    ),
+    []
+  );
+
+  const ImageTag = ({ item }) => {
+    const imageUrls = item
+      ? item.split(",").filter((url) => url.trim() !== "")
+      : [];
+
+    let itemImg = "";
+    if (imageUrls.length === 0) {
+      itemImg = item || "";
+    } else {
+      itemImg = imageUrls[0];
     }
 
-    if (supabaseGroupChat.length === 0 && !isInitialLoad) {
+    return (
+      <Image
+        source={{
+          uri: R2_PUBLIC_URL + itemImg,
+        }}
+        style={styles.postMessageImage}
+        resizeMode="cover"
+      />
+    );
+  };
+
+  // Better key extractor (same as UserChatScreen)
+  const keyExtractor = useCallback((item) => {
+    return item.id || item._id || `${item.type}-${Math.random()}`;
+  }, []);
+
+  // Improved header component for loading state (same as UserChatScreen)
+  const renderHeader = useCallback(() => {
+    if (isLoadingMore) {
       return (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="chatbox-ellipses-outline" size={48} color="#8954F6" />
-          <Text style={styles.emptyTitle}>No Messages Found</Text>
-          <Text style={styles.emptyText}>
-            Say "Hello 🙌🏻" to start the connection to this community!
+        <View style={{ padding: 20, alignItems: "center" }}>
+          <ActivityIndicator size="small" color="#8954F6" />
+          <Text style={{ color: "#8954F6", marginTop: 8 }}>
+            Loading more messages...
           </Text>
         </View>
       );
     }
-    return (
-      <View style={{ flex: 1, width: "100%" }}>
-        {/* Loading indicator for older messages - only show at top */}
-        {isLoadingOlder && hasMoreMessages && (
-          <View style={styles.loadingOlderContainer}>
-            <ActivityIndicator size="small" color="#8954F6" />
-            <Text style={styles.loadingOlderText}>
-              Loading older messages...
-            </Text>
-          </View>
-        )}
+    return null;
+  }, [isLoadingMore]);
 
+  // Empty state component (same as UserChatScreen)
+  const renderEmptyState = useCallback(() => {
+    const displayName = `${community.name} - ${subgroup.name}`;
+
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          paddingHorizontal: 40,
+          paddingVertical: 70,
+        }}
+      >
         <View
           style={{
-            alignSelf: "stretch",
-            flexDirection: "column",
+            width: 80,
+            height: 80,
+            borderRadius: 40,
+            backgroundColor: "rgba(82, 52, 143, 0.2)",
+            justifyContent: "center",
             alignItems: "center",
-            justifyContent: "flex-end", // Changed to flex-end for bottom alignment
-            marginVertical: 10,
+            marginBottom: 24,
           }}
         >
-          {sortedGroupedChats.map((group, groupIndex) => (
-            <View key={`group-${groupIndex}`} style={{ width: "100%" }}>
-              <View
+          <Text
+            style={{
+              fontSize: 32,
+              color: globalColors.neutralWhite,
+            }}
+          >
+            💬
+          </Text>
+        </View>
+
+        <Text
+          style={{
+            fontSize: 20,
+            fontFamily: fontFamilies.semiBold,
+            color: globalColors.neutralWhite,
+            textAlign: "center",
+            marginBottom: 12,
+          }}
+        >
+          Start the Conversation
+        </Text>
+
+        <Text
+          style={{
+            fontSize: 14,
+            fontFamily: fontFamilies.regular,
+            color: globalColors.neutral7,
+            textAlign: "center",
+            lineHeight: 20,
+            marginBottom: 8,
+          }}
+        >
+          Be the first to share something in {displayName}
+        </Text>
+
+        <Text
+          style={{
+            fontSize: 12,
+            fontFamily: fontFamilies.light,
+            color: globalColors.neutral6,
+            textAlign: "center",
+            lineHeight: 16,
+            fontStyle: "italic",
+            marginBottom: 24,
+          }}
+        >
+          Your message will be visible to all members
+        </Text>
+
+        {community.whatAmI != "0" && (
+          <View
+            style={{
+              flexDirection: "row",
+              gap: 12,
+            }}
+          >
+            <TouchableOpacity
+              style={{
+                backgroundColor: "rgba(82, 52, 143, 0.3)",
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 20,
+                borderWidth: 1,
+                borderColor: "rgba(82, 52, 143, 0.5)",
+              }}
+              onPress={() => {
+                setMessage("Hello everyone! 👋");
+              }}
+            >
+              <Text
                 style={{
-                  borderRadius: 24,
-                  backgroundColor: globalColors.neutral2,
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  paddingVertical: "2%",
-                  paddingHorizontal: "3%",
-                  marginVertical: 15,
-                  alignSelf: "center",
+                  color: globalColors.neutralWhite,
+                  fontSize: 12,
+                  fontFamily: fontFamilies.medium,
                 }}
               >
-                <Text
-                  style={{
-                    position: "relative",
-                    fontSize: 12,
-                    lineHeight: 20,
-                    fontFamily: fontFamilies.light,
-                    color: globalColors.neutralWhite,
-                    textAlign: "center",
-                  }}
-                >
-                  {group.date}
-                </Text>
-              </View>
-              {group.chats.map((item, itemIndex) => (
-                <View key={`message-${item._id}`}>
-                  {item.postId == 0 ? (
-                    <TouchableOpacity
-                      activeOpacity={0.8}
-                      onLongPress={() => {
-                        handleLongPress(item, item._id);
-                        setSelectedMessageId(item._id);
-                        setShowReactionMenu(true);
-                      }}
-                      style={[
-                        styles.messageWrapper,
-                        item?.senderId == userId
-                          ? styles.currentUserMessage
-                          : styles.otherUserMessage,
-                      ]}
-                    >
-                      {item?.senderId != userId && (
-                        <UserAvatar item={item} />
-                      )}
-                      <View style={styles.messageContentWrapper}>
-                        {item?.senderId != userId && (
-                          <Text style={styles.messageSender}>
-                            {item.user.name}
-                          </Text>
-                        )}
-                        <View
-                          style={[
-                            styles.messageBubble,
-                            item?.senderId == userId
-                              ? styles.currentUserBubble
-                              : styles.otherUserBubble,
-                            item?.fileType === "image" && styles.imageBubble, // Special styling for image bubbles
-                            item?.fileType === "image" &&
-                              item?.message == "" &&
-                              styles.imageOnlyBubble, // No padding for image-only messages
-                          ]}
-                        >
-                          {/* Image Preview - Click to Expand */}
-                          {item?.fileType === "image" && (
-                            <TouchableOpacity
-                              onPress={() =>
-                                toggleModal(R2_PUBLIC_URL + item?.attachment)
-                              }
-                              style={[
-                                styles.imageContainer,
-                                item?.message != "" && styles.imageWithText, // Add margin if there's text below
-                              ]}
-                            >
-                              <Image
-                                source={{
-                                  uri: R2_PUBLIC_URL + item?.attachment,
-                                }}
-                                style={[
-                                  styles.chatImage,
-                                  item?.message == "" && styles.imageOnlyRadius, // Rounded corners for image-only
-                                ]}
-                              />
-                            </TouchableOpacity>
-                          )}
-                          {item?.message != "" && (
-                            <Text
-                              style={[
-                                styles.messageText,
-                                item?.fileType === "image" &&
-                                  styles.textWithImage,
-                              ]}
-                            >
-                              {item?.message}
-                            </Text>
-                          )}
-                        </View>
-                        <View style={styles.messageFooter}>
-                          <Text style={styles.messageTime}>
-                            {moment
-                              .utc(item?.created_at)
-                              .utcOffset("+05:30")
-                              .format("h:mm A")}
-                          </Text>
-                          {/* {item.reactions.length > 0 && (
-                                      <View style={styles.reactionsContainer}>
-                                        {item.reactions.map((reaction, index) => (
-                                          <Text key={index} style={styles.reaction}>
-                                            {reaction}
-                                          </Text>
-                                        ))}
-                                      </View>
-                                    )} */}
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-                  ) : (
-                    <TouchableOpacity
-                      activeOpacity={0.8}
-                      onPress={() =>
-                        router.push({
-                          pathname: "/post/[id]",
-                          params: {
-                            id: item.postId,
-                            Type: "group",
-                            isNotification: "here",
-                          },
-                        })
-                      }
-                      style={[
-                        styles.messageWrapper,
-                        item?.senderId == userId
-                          ? styles.currentUserMessage
-                          : styles.otherUserMessage,
-                        styles.postMessageWrapper,
-                      ]}
-                    >
-                      <View style={styles.messageContentWrapperPost}>
-                        <View
-                          style={[
-                            styles.messageBubble,
-                            styles.postBubble,
-                            item?.senderId == userId
-                              ? styles.currentUserBubblePost
-                              : styles.otherUserBubblePost,
-                          ]}
-                        >
-                          <View
-                            style={{
-                              flexDirection: "row",
-                              alignItems: "center",
-                            }}
-                          >
-                            <Image
-                              source={{ uri: R2_PUBLIC_URL + item.user.avatar }}
-                              style={styles.messageAvatar}
-                            />
-                            <View style={{ flexDirection: "column" }}>
-                              <Text
-                                style={{
-                                  textAlign: "left",
-                                  fontSize: 14,
-                                  fontFamily: fontFamilies.bold,
-                                  color: globalColors.neutralWhite,
-                                }}
-                              >
-                                {item.user.name}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.messageSender,
-                                  // item?.senderId == userId && {
-                                  //   color: "rgb(5, 3, 14)",
-                                  //   fontFamily: fontFamilies.semiBold,
-                                  // },
-                                ]}
-                              >
-                                {moment
-                                  .utc(item?.created_at)
-                                  .utcOffset("+05:30")
-                                  .fromNow()}
-                              </Text>
-                            </View>
-                          </View>
+                👋 Say Hi
+              </Text>
+            </TouchableOpacity>
 
-                          {item?.fileType === "image" && (
-                            <ImageTag item={item?.attachment} />
-                          )}
-                          {item?.fileType === "video" && (
-                            <MediaPost
-                              source={{
-                                thumbnail: "",
-                                url: item?.attachment,
-                              }}
-                              type={"video"}
-                              isHome={false}
-                              isGroup={true}
-                              onPressView={() => {}}
-                            />
-                          )}
-                          {item?.file_type === "audio" && (
-                            <Track_Player
-                              Type={item?.attachment}
-                              id={item.postId}
-                            />
-                          )}
-
-                          <Text style={[styles.messageText, { padding: 7 }]}>
-                            {item.message}
-                          </Text>
-                        </View>
-                        <View style={styles.messageFooter}>
-                          <Text style={styles.messageTime}>
-                            {moment
-                              .utc(item?.created_at)
-                              .utcOffset("+05:30")
-                              .format("h:mm A")}
-                          </Text>
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ))}
-              {/* Fullscreen Image Modal */}
-              <Modal
-                visible={isModalVisible}
-                transparent={true}
-                animationType="fade"
-                onRequestClose={toggleCloseModal}
+            <TouchableOpacity
+              style={{
+                backgroundColor: "rgba(82, 52, 143, 0.3)",
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 20,
+                borderWidth: 1,
+                borderColor: "rgba(82, 52, 143, 0.5)",
+              }}
+              onPress={() => {
+                setShowAttachmentDrawer(true);
+              }}
+            >
+              <Text
+                style={{
+                  color: globalColors.neutralWhite,
+                  fontSize: 12,
+                  fontFamily: fontFamilies.medium,
+                }}
               >
-                <TouchableOpacity
-                  style={{
-                    flex: 1,
-                    backgroundColor: "rgba(0,0,0,0.9)",
-                    justifyContent: "center",
-                    alignItems: "center",
-                  }}
-                  onPress={toggleCloseModal}
-                  activeOpacity={1}
-                >
-                  {selectedImage && (
-                    <Image
-                      source={{ uri: selectedImage }}
-                      style={{
-                        width: width * 0.9,
-                        height: height * 0.7,
-                        resizeMode: "contain",
-                        borderRadius: 10,
-                      }}
-                    />
-                  )}
-                </TouchableOpacity>
-              </Modal>
-            </View>
-          ))}
-        </View>
+                📷 Share Photo
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     );
-  };
+  }, [community, subgroup, setMessage]);
 
   const ClearConRef = useRef<BottomSheet>(null);
   const OptionsSenderRef = useRef<BottomSheet>(null);
@@ -953,7 +517,6 @@ export default function CommunityOtherChat() {
     message.senderId == userId ? DeleteMessageRef.current.expand() : null;
   };
 
-  //delete message function
   const handleDeleteMessage = () => {
     if (selectedMessageId) {
       deleteMessage(selectedMessageId);
@@ -962,24 +525,282 @@ export default function CommunityOtherChat() {
     }
   };
 
+  
+  const renderChatItem = useCallback(
+    ({ item }) => {
+      if (item.type === "date") {
+        return (
+          <View
+            style={{
+              borderRadius: 24,
+              backgroundColor: globalColors.neutral2,
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              paddingVertical: "2%",
+              paddingHorizontal: "3%",
+              marginVertical: 15,
+              alignSelf: "center",
+            }}
+          >
+            <Text
+              style={{
+                position: "relative",
+                fontSize: 12,
+                lineHeight: 20,
+                fontFamily: fontFamilies.light,
+                color: globalColors.neutralWhite,
+                textAlign: "center",
+              }}
+            >
+              {item.date}
+            </Text>
+          </View>
+        );
+      }
+
+      return (
+        <View>
+          {item.postId == 0 ? (
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onLongPress={() => {
+                handleLongPress(item, item._id);
+                setSelectedMessageId(item._id);
+                setShowReactionMenu(true);
+              }}
+              style={[
+                styles.messageWrapper,
+                item?.senderId == userId
+                  ? styles.currentUserMessage
+                  : styles.otherUserMessage,
+              ]}
+            >
+              {item?.senderId != userId && <UserAvatar item={item} />}
+              <View style={styles.messageContentWrapper}>
+                {item?.senderId != userId && (
+                  <Text style={styles.messageSender}>{item.user.name}</Text>
+                )}
+                <View
+                  style={[
+                    styles.messageBubble,
+                    item?.senderId == userId
+                      ? styles.currentUserBubble
+                      : styles.otherUserBubble,
+                    item?.fileType === "image" && styles.imageBubble,
+                    item?.fileType === "image" &&
+                      item?.message == "" &&
+                      styles.imageOnlyBubble,
+                  ]}
+                >
+                  {item?.fileType === "image" && (
+                    <TouchableOpacity
+                      onPress={() =>
+                        toggleModal(R2_PUBLIC_URL + item?.attachment)
+                      }
+                      onLongPress={() => {
+                        handleLongPress(item, item._id);
+                        setSelectedMessageId(item._id);
+                        setShowReactionMenu(true);
+                      }}
+                      delayLongPress={300}
+                      style={[styles.imageContainer]}
+                    >
+                      <Image
+                        source={{
+                          uri: R2_PUBLIC_URL + item?.attachment,
+                        }}
+                        style={[
+                          styles.chatImage,
+                          item?.message == "" && styles.imageOnlyRadius,
+                        ]}
+                      />
+                    </TouchableOpacity>
+                  )}
+                  {item?.message != "" && (
+                    <Text
+                      style={[
+                        styles.messageText,
+                        item?.fileType === "image" && styles.textWithImage,
+                      ]}
+                    >
+                      <RichText
+                        text={item?.message}
+                        mentions={[]}
+                        styles={{
+                          linkText: {
+                            color:
+                              item?.senderId == userId
+                                ? "pink"
+                                : globalColors.lightShadeNew,
+                            textDecorationLine: "underline",
+                            fontFamily: fontFamilies.bold,
+                            fontSize: 15,
+                          },
+                          hashtagText: {
+                            color:
+                              item?.senderId == userId
+                                ? "pink"
+                                : globalColors.lightShadeNew,
+                            fontFamily: fontFamilies.bold,
+                            fontSize: 15,
+                          },
+                        }}
+                      />
+                      {/* {item?.message} */}
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.messageFooter}>
+                  <Text style={styles.messageTime}>
+                    {moment
+                      .utc(item?.created_at)
+                      .utcOffset("+05:30")
+                      .format("h:mm A")}
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() =>
+                router.push({
+                  pathname: "/post/[id]",
+                  params: {
+                    id: item.postId,
+                    Type: "group",
+                    isNotification: "here",
+                  },
+                })
+              }
+              style={[
+                styles.messageWrapper,
+                item?.senderId == userId
+                  ? styles.currentUserMessage
+                  : styles.otherUserMessage,
+                styles.postMessageWrapper,
+              ]}
+            >
+              <View style={styles.messageContentWrapperPost}>
+                <View
+                  style={[
+                    styles.messageBubble,
+                    styles.postBubble,
+                    item?.senderId == userId
+                      ? styles.currentUserBubblePost
+                      : styles.otherUserBubblePost,
+                  ]}
+                >
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Image
+                      source={{ uri: R2_PUBLIC_URL + item.user.avatar }}
+                      style={styles.messageAvatar}
+                    />
+                    <View style={{ flexDirection: "column" }}>
+                      <Text
+                        style={{
+                          textAlign: "left",
+                          fontSize: 14,
+                          fontFamily: fontFamilies.bold,
+                          color: globalColors.neutralWhite,
+                        }}
+                      >
+                        {item.user.name}
+                      </Text>
+                      <Text style={[styles.messageSender]}>
+                        {moment
+                          .utc(item?.created_at)
+                          .utcOffset("+05:30")
+                          .fromNow()}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {item?.fileType === "image" && (
+                    <ImageTag item={item?.attachment} />
+                  )}
+                  {item?.fileType === "video" && (
+                    <MediaPost
+                      source={{
+                        thumbnail: "",
+                        url: item?.attachment,
+                      }}
+                      type={"video"}
+                      isHome={false}
+                      isGroup={true}
+                      onPressView={() => {}}
+                      display_height={[]}
+                    />
+                  )}
+                  {item?.file_type === "audio" && (
+                    <Track_Player Type={item?.attachment} id={item.postId} />
+                  )}
+
+                  <Text
+                    style={[
+                      styles.messageText,
+                      { paddingHorizontal: 6, paddingTop: 5 },
+                    ]}
+                  >
+                    <RichText
+                      text={item?.message}
+                      mentions={[]}
+                      styles={{
+                        linkText: {
+                          color:
+                            item?.senderId == userId
+                              ? "pink"
+                              : globalColors.lightShadeNew,
+                          textDecorationLine: "underline",
+                          fontFamily: fontFamilies.bold,
+                          fontSize: 15,
+                        },
+                        hashtagText: {
+                          color:
+                            item?.senderId == userId
+                              ? "pink"
+                              : globalColors.lightShadeNew,
+                          fontFamily: fontFamilies.bold,
+                          fontSize: 15,
+                        },
+                      }}
+                    />
+                  </Text>
+                </View>
+                <View style={styles.messageFooter}>
+                  <Text style={styles.messageTime}>
+                    {moment
+                      .utc(item?.created_at)
+                      .utcOffset("+05:30")
+                      .format("h:mm A")}
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
+        </View>
+      );
+    },
+    [userId, handleLongPress, toggleModal]
+  );
+
+
   return (
     <LinearGradient colors={["#0f0721", "#0f0721"]} style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
-            {/* <Ionicons name="arrow-back" size={24} color="white" /> */}
             <ArrowLeftBigIcon width={40} height={40} />
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.headerInfo}
-            // onPress={() => setShowMembers(!showMembers)}
-          >
-            {/* <Image
-              source={{ uri: community.image }}
-              style={styles.communityImage}
-            /> */}
+          <TouchableOpacity style={styles.headerInfo}>
             <ImageFallBackUser
               imageData={"" + community?.image}
               fullName={
@@ -991,7 +812,6 @@ export default function CommunityOtherChat() {
               heights={36}
               borders={10}
               isGroupList={true}
-              //   style={styles.communityImage}
             />
             <View style={styles.headerTextContainer}>
               <Text style={styles.headerTitle}>
@@ -1011,43 +831,38 @@ export default function CommunityOtherChat() {
         </View>
 
         {/* Tabs */}
-        {
-          <View style={styles.tabsContainer}>
-            <TouchableOpacity
-              style={[styles.tab, activeTab === "Chats" && styles.activeTab]}
-              onPress={() => {
-                setActiveTab("Chats");
-                setTimeout(() => {
-                  flatListRef.current?.scrollToEnd({ animated: true });
-                }, 100);
-              }}
+        <View style={styles.tabsContainer}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === "Chats" && styles.activeTab]}
+            onPress={() => {
+              setActiveTab("Chats");
+            }}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === "Chats" && styles.activeTabText,
+              ]}
             >
-              <Text
-                style={[
-                  styles.tabText,
-                  activeTab === "Chats" && styles.activeTabText,
-                ]}
-              >
-                Chats
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tab, activeTab === "Media" && styles.activeTab]}
-              onPress={() => setActiveTab("Media")}
+              Chats
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === "Media" && styles.activeTab]}
+            onPress={() => setActiveTab("Media")}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === "Media" && styles.activeTabText,
+              ]}
             >
-              <Text
-                style={[
-                  styles.tabText,
-                  activeTab === "Media" && styles.activeTabText,
-                ]}
-              >
-                Media
-              </Text>
-            </TouchableOpacity>
-          </View>
-        }
+              Media
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-        {/* Members List (Collapsible) */}
+        {/* Members List */}
         {showMembers && (
           <View style={styles.membersContainer}>
             <Text style={styles.membersTitle}>Members</Text>
@@ -1083,83 +898,69 @@ export default function CommunityOtherChat() {
         >
           {activeTab === "Chats" ? (
             <>
-              {/* Messages */}
-              {/* <ScrollView
-                showsVerticalScrollIndicator={false}
-                ref={flatListRef}
-                style={{
-                  flex: 1,
-                  width: "100%",
-                }}
-                contentContainerStyle={{
-                  flexGrow: 1,
-                  paddingHorizontal: 10,
-                  justifyContent:
-                    supabaseGroupChat.length === 0 ? "center" : "flex-end", // This will push content to the bottom
-                }}
-              > */}
-              {/* Updated ScrollView with content size handling */}
-              <ScrollView
-                ref={scrollViewRef}
-                showsVerticalScrollIndicator={false}
-                style={{ flex: 1, width: "100%" }}
-                contentContainerStyle={{
-                  flexGrow: 1,
-                  paddingHorizontal: 10,
-                  paddingTop: 10,
-                  paddingBottom: 20,
-                  justifyContent:
-                    supabaseGroupChat.length === 0 ? "center" : "flex-end",
-                }}
-                onScroll={handleScroll}
-                scrollEventThrottle={150}
-                onScrollBeginDrag={() => setIsUserScrolling(true)}
-                onScrollEndDrag={() => {
-                  setTimeout(() => setIsUserScrolling(false), 150);
-                }}
-                onMomentumScrollEnd={() => {
-                  setTimeout(() => setIsUserScrolling(false), 100);
-                }}
-                onContentSizeChange={handleContentSizeChange}
-                removeClippedSubviews={true}
-                keyboardShouldPersistTaps="handled"
-                maintainVisibleContentPosition={
-                  isLoadingOlder
-                    ? {
-                        minIndexForVisible: 0,
-                        autoscrollToTopThreshold: 50,
-                      }
-                    : undefined
-                }
-                disableIntervalMomentum={true}
-                decelerationRate="normal"
-                bounces={true}
-                bouncesZoom={false}
-                alwaysBounceVertical={false}
-                overScrollMode="auto"
-              >
-               
-                  <Chats />
-                
-              </ScrollView>
-
-              {/* Typing indicator */}
-              {/* {isTyping && (
-                <View style={styles.typingContainer}>
-                  <View style={styles.typingBubble}>
-                    <Animated.View style={styles.typingDot} />
-                    <Animated.View
-                      style={[styles.typingDot, { marginLeft: 4 }]}
-                    />
-                    <Animated.View
-                      style={[styles.typingDot, { marginLeft: 4 }]}
-                    />
+              <View style={{ flex: 1, width: "100%" }}>
+                {isInitialLoad ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#8954F6" />
+                    <Text style={styles.loadingText}>Loading messages...</Text>
                   </View>
-                </View>
-              )} */}
+                ) : flattenedChatData.length === 0 ? (
+                  // Show empty state outside FlatList to avoid inversion
+                  renderEmptyState()
+                ) : (
+                  <FlatList
+                    ref={subgroupMessageListRef}
+                    data={flattenedChatData}
+                    renderItem={renderChatItem}
+                    keyExtractor={keyExtractor}
+                    showsVerticalScrollIndicator={false}
+                    inverted
+                    onEndReached={onLoadMore}
+                    onEndReachedThreshold={0.3}
+                    ListFooterComponent={renderHeader} // Use ListFooterComponent for inverted FlatList
+                    maintainVisibleContentPosition={{
+                      minIndexForVisible: 0,
+                      autoscrollToTopThreshold: 10,
+                    }}
+                    removeClippedSubviews={true}
+                    maxToRenderPerBatch={20}
+                    windowSize={10}
+                    initialNumToRender={20}
+                  />
+                )}
 
-              {/* Message Input */}
-              {/* Image Preview - shows above input when image is selected */}
+                <Modal
+                  visible={isModalVisible}
+                  transparent={true}
+                  animationType="fade"
+                  onRequestClose={toggleCloseModal}
+                >
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      backgroundColor: "rgba(0,0,0,0.9)",
+                      justifyContent: "center",
+                      alignItems: "center",
+                    }}
+                    onPress={toggleCloseModal}
+                    activeOpacity={1}
+                  >
+                    {selectedImage && (
+                      <Image
+                        source={{ uri: selectedImage }}
+                        style={{
+                          width: width * 0.9,
+                          height: height * 0.7,
+                          resizeMode: "contain",
+                          borderRadius: 10,
+                        }}
+                      />
+                    )}
+                  </TouchableOpacity>
+                </Modal>
+              </View>
+
+              {/* Image Preview */}
               {imageData && (
                 <ImagePreview
                   imageUri={imageData}
@@ -1181,10 +982,7 @@ export default function CommunityOtherChat() {
                     />
                   </TouchableOpacity>
                   <TextInput
-                    style={[
-                      styles.input,
-                      imageData && styles.inputWithImage, // Add this style for when image is selected
-                    ]}
+                    style={[styles.input, imageData && styles.inputWithImage]}
                     placeholder={imageData ? "Add a caption..." : "Message..."}
                     placeholderTextColor="#6c6c7d"
                     value={message}
@@ -1203,10 +1001,7 @@ export default function CommunityOtherChat() {
                         return;
 
                       setSendDisabled(true);
-
-                      await handleSendMessage(); // Don't handle condition again here
-
-                      // You can re-enable the button later if needed in handleSendMessage
+                      await handleSendMessage();
                     }}
                     disabled={
                       message.trim() === "" && !imageData && !sendDisabled
@@ -1225,29 +1020,7 @@ export default function CommunityOtherChat() {
                 </View>
               )}
             </>
-          ) : activeTab === "Posts" ? (
-            // Posts Tab
-            <FlatList
-              data={communityPosts}
-              keyExtractor={(item) => item.id.toString()}
-              renderItem={({ item }) => renderPostItem(item)}
-              contentContainerStyle={styles.postsContainer}
-              ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Ionicons
-                    name="newspaper-outline"
-                    size={48}
-                    color="#8954F6"
-                  />
-                  <Text style={styles.emptyTitle}>No Posts Yet</Text>
-                  <Text style={styles.emptyText}>
-                    Be the first to mention {community.name} in a post!
-                  </Text>
-                </View>
-              }
-            />
           ) : (
-            // Media Tab
             <MediaGallery
               supabaseGroupMedia={supabaseGroupMedia}
               subgroup={subgroup}
@@ -1337,7 +1110,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderBottomColor: globalColors.warmPinkShade20,
     borderBottomWidth: 3,
-    // borderColor: globalColors.warmPink,
     borderColor: "#a78bfa",
   },
   tabText: {
@@ -1406,8 +1178,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     maxWidth: "80%",
     flexDirection: "row",
-    // Add these properties to prevent layout shifts
     overflow: "hidden",
+    paddingHorizontal: 15,
   },
   postMessageWrapper: {
     maxWidth: "90%",
@@ -1440,7 +1212,6 @@ const styles = StyleSheet.create({
   messageBubble: {
     borderRadius: 18,
     padding: 1,
-    // Add these properties to prevent layout shifts
     overflow: "hidden",
   },
   currentUserBubblePost: {
@@ -1461,15 +1232,14 @@ const styles = StyleSheet.create({
   postBubble: {
     backgroundColor: "rgba(116, 84, 244, 0.2)",
     borderBottomLeftRadius: 4,
-    paddingHorizontal: 16, // Default padding for text-only messages
+    paddingHorizontal: 16,
     paddingVertical: 10,
-    // paddingBottom: 8,
   },
   messageText: {
     color: "white",
     fontSize: 14,
     fontFamily: fontFamilies.regular,
-    paddingHorizontal: 16, // Default padding for text-only messages
+    paddingHorizontal: 16,
     paddingVertical: 10,
   },
   messageFooter: {
@@ -1515,7 +1285,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: "rgba(116, 84, 244, 0.1)",
-    // backgroundColor: "rgba(10, 0, 37, 0.8)",
   },
   attachButton: {
     padding: 8,
@@ -1680,14 +1449,6 @@ const styles = StyleSheet.create({
   mediaGrid: {
     padding: 4,
   },
-  // mediaItem: {
-  //   flex: 1,
-  //   margin: 4,
-  //   height: 160,
-  //   borderRadius: 8,
-  //   overflow: "hidden",
-  //   position: "relative",
-  // },
   row: {
     justifyContent: "space-between",
     marginBottom: 5,
@@ -1719,27 +1480,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(137, 84, 246, 0.3)",
   },
-  // Image-specific bubble styles
   imageBubble: {
-    padding: 2, // Minimal padding for image bubbles
-    overflow: "hidden", // Ensure images don't overflow the bubble
+    padding: 2,
+    overflow: "hidden",
   },
-
   imageOnlyBubble: {
-    padding: 1, // No padding for image-only messages
-    // backgroundColor: "transparent", // Let the image show through
+    padding: 1,
   },
   imageContainer: {
     borderRadius: 12,
     overflow: "hidden",
     position: "relative",
-    backgroundColor: "rgba(137, 84, 246, 0.1)", // Add background color
+    backgroundColor: "rgba(137, 84, 246, 0.1)",
   },
-
-  imageWithText: {
-    marginBottom: 8, // Space between image and text
-  },
-
   chatImage: {
     width: width * 0.6,
     height: width * 0.6 * 0.75,
@@ -1747,13 +1500,11 @@ const styles = StyleSheet.create({
     maxHeight: 300,
     minWidth: 150,
     minHeight: 120,
-    backgroundColor: "rgba(137, 84, 246, 0.1)", // Add background color for loading
+    backgroundColor: "rgba(137, 84, 246, 0.1)",
   },
-
   imageOnlyRadius: {
-    borderRadius: 20, // Rounded corners for standalone images
+    borderRadius: 20,
   },
-
   imageOverlay: {
     position: "absolute",
     bottom: 8,
@@ -1763,20 +1514,16 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 20,
   },
-
   imageOverlayTime: {
     color: "white",
     fontSize: 11,
     fontFamily: fontFamilies.light,
   },
-
   textWithImage: {
-    marginTop: 0, // No extra margin since image handles spacing
-    paddingHorizontal: 12, // Horizontal padding for text
-    paddingVertical: 8, // Vertical padding for text
+    marginTop: 0,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-
-  // Add these new styles:
   loadingContainer: {
     flex: 1,
     justifyContent: "center",

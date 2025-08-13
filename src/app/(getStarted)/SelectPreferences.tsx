@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ScrollView,
   View,
@@ -19,6 +19,7 @@ import Caption from "@/components/SelectPreferencesComponents/Caption";
 import CategoriesList from "@/components/SelectPreferencesComponents/CategoriesList";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { logEvent, useScreenTracking } from "@/customHooks/useAnalytics";
+import { AllGroupReq } from "@/redux/reducer/group/AllGroups";
 
 const SelectPreferences = () => {
   useScreenTracking("SelectPreferences");
@@ -30,6 +31,16 @@ const SelectPreferences = () => {
   const [shakeAnimation] = useState(new Animated.Value(0));
   //submit preference
   const [submitLoading, setSubmitLoading] = useState(false);
+
+  useEffect(() => {
+    callApi();
+  }, []);
+
+  const callApi = () => {
+    if(user_id || userId){
+    dispatch(AllGroupReq({ fromApp: 1, last_count: 0, user_id: user_id || userId }));
+    }
+  }
 
   const toggleCuisine = useCallback((id) => {
     setCategoryData((prevCategories) => {
@@ -86,7 +97,8 @@ const SelectPreferences = () => {
       setSubmitLoading(false);
       if(response?.payload?.success){
        await AsyncStorage.setItem("isNewUser", "true");
-        router.replace("/DashboardScreen");
+         router.replace("/DashboardScreen");
+        // router.replace("/SelectCommunity");
       }
       else{
         showToast({ type: "error", text1: response?.payload?.message });

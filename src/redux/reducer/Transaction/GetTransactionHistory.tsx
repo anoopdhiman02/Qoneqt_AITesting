@@ -39,6 +39,7 @@ export const getTransactionHistory = createAsyncThunk(
     try {
       const response = await axiosInstance.request(options);
       return {...response.data, last_count: lastCount};
+      
     } catch (error) {
       console.error("Error fetching TransAction_List", error);
       // Re-throw the error to let it propagate to the component
