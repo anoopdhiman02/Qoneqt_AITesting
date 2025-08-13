@@ -1,0 +1,63 @@
+{
+  "project_info": {
+    "project_number": "9278642222",
+    "firebase_url": "https://qoneqt-e039d.firebaseio.com",
+    "project_id": "qoneqt-e039d",
+    "storage_bucket": "qoneqt-e039d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:9278642222:android:eb90240addc60dc58c27bf",
+        "android_client_info": {
+          "package_name": "com.qoneqt.android"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "9278642222-t2pui9hb6kdumrdmadns3g9aciciffdr.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.qoneqt.android",
+            "certificate_hash": "20bf4d7a92ed85a050652edbec913de7aa65875e"
+          }
+        },
+        {
+          "client_id": "9278642222-ta1tt7fot3gpgh29g4bfrm24j4vk66km.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.qoneqt.android",
+            "certificate_hash": "44c86cee288bed6704e8bc70543d0d6c3bd18f59"
+          }
+        },
+        {
+          "client_id": "9278642222-vg3dbt39p1osk5f8f3qnueusviidu3qm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCPGp0DVvmtAXnFF5SFozcrZTrJSV60WBE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "9278642222-g6gtpkkt8hba69fad3eh2tghcugkrd15.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "9278642222-irdmcm22uif6m1qarehursn0epnhopkp.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.qoneqt.qoneqt"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

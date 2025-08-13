@@ -54,3 +54,6 @@ android/app/debug/
 # Test outputs
 test_reports/
 test_screenshots/
+yarn.lock
+maestro_tests
+scripts
