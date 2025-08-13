@@ -57,3 +57,4 @@ test_screenshots/
 yarn.lock
 maestro_tests
 scripts
+script.sh
